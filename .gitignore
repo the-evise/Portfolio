@@ -42,14 +42,22 @@ dist/
 Thumbs.db
 
 # Env files
+.env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Build caches
+.turbo/
+.next/cache/
+
 # IDE
 .idea/
 .vscode/
+.fleet/
 
 # TypeScript build output
 *.tsbuildinfo
