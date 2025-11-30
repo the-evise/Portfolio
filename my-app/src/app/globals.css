@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F7FFF6;
+  --foreground: #171717;
+  --ruddy-blue: #5794e4;
+  --tropical-indigo: #9d81e7;
+  --mint-cream: #f7fff6;
+  --night: #0b0b0a;
+  --cardinal-dark: #c7434e;
+  --cardinal-light: #ad343e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ruddy-blue: var(--ruddy-blue);
+  --color-tropical-indigo: var(--tropical-indigo);
+  --color-mint-cream: var(--mint-cream);
+  --color-night: var(--night);
+  --color-cardinal-dark: var(--cardinal-dark);
+  --color-cardinal-light: var(--cardinal-light);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-dm-mono);
+  --font-display: var(--font-dm-serif-display);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #F7FFF6;
+    --foreground: #ededed;
+  }
+}
+
+@media (max-height: 768px) {
+    .hide-below-h-768 {
+        display: none !important;
+    }
+}
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

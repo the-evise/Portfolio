@@ -1,0 +1,42 @@
+<svg
+        width="26"
+        height="26"
+        viewBox="0 0 26 26"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+>
+
+    <!-- BACKGROUND GLOW -->
+    <g filter="url(#blur4)">
+        <path
+                d="M11.0727 1.16979C11.6499 -0.389923 13.8559 -0.389922 14.433 1.16979L16.5359 6.85277C16.8988 7.8335 17.6721 8.60675 18.6528 8.96966L24.3358 11.0725C25.8955 11.6497 25.8955 13.8557 24.3358 14.4329L18.6528 16.5358C17.6721 16.8987 16.8988 17.6719 16.5359 18.6526L14.433 24.3356C13.8559 25.8953 11.6499 25.8953 11.0727 24.3356L8.96982 18.6526C8.60692 17.6719 7.83367 16.8987 6.85293 16.5358L1.16995 14.4329C-0.389756 13.8557 -0.389754 11.6497 1.16996 11.0725L6.85294 8.96966C7.83367 8.60675 8.60692 7.8335 8.96982 6.85277L11.0727 1.16979Z"
+                fill="url(#glowGradient)"
+        />
+    </g>
+
+    <defs>
+        <!-- Blur for glow layer -->
+        <filter
+                id="blur4"
+                x="0"
+                y="0"
+                width="40"
+                height="40"
+                filterUnits="userSpaceOnUse"
+                color-interpolation-filters="sRGB"
+        >
+            <feGaussianBlur stdDeviation="2" />
+        </filter>
+
+        <!-- Glow gradient -->
+        <linearGradient
+                id="glowGradient"
+                gradientUnits="userSpaceOnUse"
+                gradientTransform="rotate(-22)"
+        >
+            <stop offset="0%" stop-color="#60AAFF" />
+            <stop offset="49%" stop-color="#EDC8FF" />
+            <stop offset="68%" stop-color="#B499FF" />
+        </linearGradient>
+    </defs>
+</svg>
