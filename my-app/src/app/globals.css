@@ -38,6 +38,12 @@
     }
 }
 
+@media (max-height: 1024px) {
+    .hide-below-h-1024 {
+        display: none !important;
+    }
+}
+
 
 body {
   background: var(--background);

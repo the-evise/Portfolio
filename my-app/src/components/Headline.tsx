@@ -16,7 +16,7 @@ export default function Headline({ text, className, color = "night" }: HeadlineP
         <h1
             className={cn(
                 "font-display italic text-center leading-tight",
-                "text-[40px] sm:text-[48px]",
+                "text-[40px] sm:text-[48px] hide-below-h-1024",
                 colorMap[color], // ← applied here
                 className
             )}

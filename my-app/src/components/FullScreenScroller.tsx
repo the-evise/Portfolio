@@ -221,14 +221,14 @@ export default function FullScreenScroller({
   return (
     <FullScreenScrollerContext.Provider value={contextValue}>
       {children}
-      <div ref={containerRef} className={cn("h-screen w-screen py-20 overflow-y-scroll snap-y snap-mandatory", className)}>
+      <div ref={containerRef} className={cn("h-screen w-screen overflow-y-scroll snap-y snap-mandatory", className)}>
         {normalizedSections.map(({ id, content, className: sectionOverrides }) => (
           <section
             key={id}
             data-section-id={id}
             ref={registerSection(id)}
             className={cn(
-              "snap-start flex h-screen w-full items-center justify-center",
+              "snap-start flex h-screen w-full items-center justify-center pt-20",
               sectionClassName,
               sectionOverrides
             )}

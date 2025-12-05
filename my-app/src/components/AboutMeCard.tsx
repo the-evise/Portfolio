@@ -97,7 +97,7 @@ export default function AboutMeCard() {
     return (
         <motion.div
             ref={cardRef}
-            className={cn("relative w-[350px] h-[514px] md:w-[377px] [perspective:1200px] cursor-default", "md:w-[430px] lg:w-[480px] md:h-[620px] transform-gpu")}
+            className={cn("relative w-[350px] h-[514px] md:w-[377px] [perspective:1200px] cursor-default", "md:w-[430px] lg:w-[480px] transform-gpu")}
             variants={CARD_VARIANTS}
             initial="hidden"
             animate={introReady ? "visible" : "hidden"}
@@ -125,7 +125,7 @@ export default function AboutMeCard() {
             </motion.div>
 
             <motion.section
-                className="absolute inset-0 z-10 flex h-full flex-col justify-between rounded-2xl border-2 border-cardinal-dark/40 bg-[linear-gradient(rgba(255,255,255,0.75),rgba(255,255,255,0.65)),url('/snoise.svg')] bg-cover bg-center bg-blend-multiply p-2 md:p-4 lg:p-8 text-night shadow-[0_5px_80px_rgba(12,16,31,0.45)] backdrop-blur-sm"
+                className="absolute inset-0 z-10 flex h-full flex-col justify-between rounded-2xl border-2 border-cardinal-dark/40 bg-[linear-gradient(rgba(255,255,255,0.75),rgba(255,255,255,0.65)),url('/snoise.svg')] bg-cover bg-center bg-blend-multiply p-2 md:p-4 text-night shadow-[0_5px_80px_rgba(12,16,31,0.45)] backdrop-blur-sm"
                 variants={SECTION_VARIANTS}
                 initial="hidden"
                 animate="visible"

@@ -36,14 +36,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-    return (
+  return (
     <html lang="en">
       <body
-        className={`${dmSans.variable} ${dmMono.variable} ${dmSerifDisplay.variable} antialiased h-screen w-screen`}
+        className={`${dmSans.variable} ${dmMono.variable} ${dmSerifDisplay.variable} antialiased min-h-screen w-screen`}
       >
-      <PortalLoader />
-      <Navigation />
-        {children}
+        <PortalLoader />
+        <div className="flex min-h-screen flex-col">
+          <Navigation />
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

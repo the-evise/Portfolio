@@ -79,25 +79,25 @@ export default function ReactiveGrid() {
 
 return (
         <motion.div
-            className="w-full rounded-3xl border border-white/5 bg-ruddy-blue p-4 md:p-8"
+            className="w-fit mx-auto rounded-3xl border border-white/5 bg-ruddy-blue p-4 md:p-8"
             initial={{ opacity: 0, scale: 0.95, y: 24 }}
             whileInView={{ opacity: 1, scale: 1, y: 0 }}
             viewport={{ once: true, amount: 0.35 }}
             transition={{ type: "spring", stiffness: 220, damping: 28 }}
         >
-            <div className="mb-6 text-center font-mono text-sm uppercase tracking-[0.4em] text-mint-cream/60">
-                Reactive Motions
-            </div>
             <div
                 ref={gridRef}
                 className="
           grid w-full justify-center
-          grid-cols-[repeat(auto-fill,75px)]
+          grid-cols-[repeat(3,75px)]
           auto-rows-[75px]
           gap-4
-          md:grid-cols-[repeat(auto-fill,125px)]
-          md:auto-rows-[125px]
+          sm:grid-cols-[repeat(4,100px)]
+          sm:auto-rows-[100px]
+          md:grid-cols-[repeat(4,115px)]
+          md:auto-rows-[115px]
           md:gap-[30px]
+          mx-auto
         "
             >
                 {GRID_ITEMS.map((num, index) => (
@@ -293,14 +293,14 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
                 borderColor: theme.border,
             }}
             className="
-        flex size-[75px] items-center justify-center rounded-xl border text-2xl font-semibold transition
-        md:size-[125px]
+        flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
+        md:size-[115px]
         focus-visible:outline focus-visible:outline-tropical-indigo
       "
             whileTap={{scale: 0.95}}
         >
             <motion.div
-                className="relative h-7 w-8 overflow-hidden md:h-10 md:w-12"
+                className="relative h-7 w-8 overflow-hidden sm:h-8 sm:w-9 md:h-10 md:w-12"
                 style={{scale: contentScale, rotate: contentRotate, opacity: svgOpacity}}
             >
                 <Image className="object-contain" src={`/nums/${label}.svg`} alt={String(label)} fill/>

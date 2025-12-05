@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {cn} from "@/utils/utils";
 import {HiPresentationChartLine, HiTerminal, HiViewGrid} from "react-icons/hi";
-import {LayoutGroup, motion, useAnimationControls, useInView, useReducedMotion} from "motion/react";
+import {LayoutGroup, motion, useAnimationControls, useInView} from "motion/react";
 import {animate} from "motion";
 
 
@@ -21,7 +21,6 @@ export interface ExperimentTabProps {
 }
 
 function ExperimentTab({label, index, isActive, onSelect, total, buttonRef}: ExperimentTabProps) {
-    const state = isActive ? "active" : "inactive";
     const handleClick = useCallback(() => {
         if (!isActive) {
             onSelect(index);
@@ -58,10 +57,9 @@ function ExperimentTab({label, index, isActive, onSelect, total, buttonRef}: Exp
             aria-pressed={isActive}
             tabIndex={isActive ? 0 : -1}
             className={cn(
-                isActive ?
-                    "cursor-default text-mint-cream/70 bg-night border-tropical-indigo [&>*:last-child]:text-mint-cream"
-                    : "cursor-pointer text-night/35 bg-mint-cream border-tropical-indigo/25 [&>*:last-child]:text-tropical-indigo/80",
-                    "border-2 font-bold font-sans text-sm md:text-base tracking-tighter flex flex-col-reverse md:gap-8 justify-center items-center px-2 py-2 md:px-3 md:pt-8 md:pb-3 rounded-xl md:aspect-square w-fit md:w-[150px] [&>*:last-child]:text-5xl [&>*:last-child]:hidden [&>*:last-child]:md:block")}
+                "relative overflow-hidden border-2 font-bold font-sans text-sm md:text-base tracking-tighter flex flex-col-reverse md:gap-4 justify-center items-center px-2 py-2 md:px-3 md:pt-6 md:pb-4 rounded-xl w-fit md:w-[150px] md:h-[120px] bg-mint-cream/95 border-tropical-indigo/25",
+                isActive ? "cursor-default text-mint-cream" : "cursor-pointer text-night/50"
+            )}
             ref={buttonRef}
             onClick={handleClick}
             onKeyDown={handleKeyDown}
@@ -79,8 +77,26 @@ function ExperimentTab({label, index, isActive, onSelect, total, buttonRef}: Exp
             }
             layout
         >
-            <motion.span className={"break-words whitespace-normal text-center w-full max-w-[60px] md:max-w-none"} transition={{type: "spring", stiffness: 420, damping: 32}}>{label}</motion.span>
-            <motion.div transition={{type: "spring", stiffness: 420, damping: 32}}>{iconMap[label]}</motion.div>
+            {isActive && (
+                <motion.span
+                    layoutId="experiment-active-pill"
+                    className="absolute inset-0 z-0 rounded-xl bg-night"
+                    transition={{type: "spring", stiffness: 420, damping: 32}}
+                    aria-hidden="true"
+                />
+            )}
+            <motion.span
+                className={cn("relative z-10 break-words whitespace-normal text-center w-full max-w-[60px] md:max-w-none", isActive ? "text-mint-cream" : "text-night/60")}
+                transition={{type: "spring", stiffness: 420, damping: 32}}
+            >
+                {label}
+            </motion.span>
+            <motion.div
+                className={cn("relative z-10 text-5xl hidden md:block", isActive ? "text-mint-cream" : "text-tropical-indigo/80")}
+                transition={{type: "spring", stiffness: 420, damping: 32}}
+            >
+                {iconMap[label]}
+            </motion.div>
         </motion.button>
     )
 }
@@ -155,23 +171,11 @@ function ExperimentIndicator({experiments, activeExperimentIndex, onExperimentSe
             <motion.div
                 ref={wrapperRef}
                 role="tabpanel"
-                className={cn("mx-auto flex w-fit p-1 md:p-2 items-center justify-center rounded-2xl border border-night/10 bg-tropical-indigo/10 backdrop-blur-sm gap-1 md:gap-3 drop-shadow-[0_0_64px_rgba(0,0,0,0.05)] hide-below-h-768 mb-4", "")}
+                className={cn("mx-auto flex w-fit p-1 md:p-2 items-center justify-center rounded-2xl border border-night/10 bg-tropical-indigo/10 backdrop-blur-sm gap-1 md:gap-3 drop-shadow-[0_0_64px_rgba(0,0,0,0.05)] hide-below-h-768 mt-auto", "mt-auto place-self-end")}
                 initial={"hidden"}
                 animate={controls}
             >
-                {experiments.map((label, index) => (
-                    <ExperimentTab
-                        key={label}
-                        label={label}
-                        index={index}
-                        isActive={activeIndex === index}
-                        onSelect={handleSelect}
-                        total={experiments.length}
-                        buttonRef={(node) => {
-                            tabRefs.current[index] = node;
-                        }}
-                    />
-                ))}
+                {renderedExperiments}
             </motion.div>
         </LayoutGroup>
     )

@@ -29,7 +29,7 @@ export default function TempPage() {
       label: "About Me",
       className: "bg-night text-mint-cream",
       content: (
-        <div className="grid text-center space-y-4 px-4 h-[80%] w-full">
+        <div className="grid text-center justify-center items-center space-y-4 px-4 w-full">
             <div className={"place-self-center"}><AboutMeCard/></div>
         </div>
       ),
@@ -40,7 +40,7 @@ export default function TempPage() {
       className: "bg-mint-cream text-mint-cream",
       locksParent: true,
       content: (
-        <div className="flex flex-col gap-1 px-3 md:px-12 h-full md:h-[80%] w-full max-w-4xl justify-center items-center">
+        <div className="flex flex-col gap-1 px-2 md:px-12 h-full w-full justify-center items-center">
           <Headline text="Components" />
             <ExperimentPanel
                 experiments={experimentLabels}
