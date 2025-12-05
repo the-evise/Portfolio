@@ -5,7 +5,6 @@ import {
   DM_Serif_Display,
 } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
 import {PortalLoader} from "@/components/PortalLoader";
 
 const dmSans = DM_Sans({
@@ -43,7 +42,6 @@ export default function RootLayout({
       >
         <PortalLoader />
         <div className="flex min-h-screen flex-col">
-          <Navigation />
           <main className="flex-1">
             {children}
           </main>
