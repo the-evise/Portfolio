@@ -7,6 +7,7 @@ interface ProgressProps {
     value: number;
     max?: number;
     className?: string;
+    orientation?: "horizontal" | "vertical";
 }
 
 const Progress = forwardRef<HTMLDivElement, ProgressProps>(
@@ -15,6 +16,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
             value,
             max = 100,
             className,
+            orientation = "horizontal",
         },
         ref
     ) => {
@@ -44,7 +46,9 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
                 className={cn(
                     "relative overflow-hidden border transition-all duration-300 ease-in-out",
                     "rounded-full h-fit w-fit p-[3px] bg-ruddy-blue/10 border border-ruddy-blue/15",
-                    "flex flex-row items-center justify-center gap-1",
+                    orientation === "vertical"
+                        ? "flex flex-col items-center justify-center gap-1"
+                        : "flex flex-row items-center justify-center gap-1",
                     className
                 )}
             >

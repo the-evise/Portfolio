@@ -1,7 +1,7 @@
 "use client";
-import {useEffect, useState} from "react";
+import type { InputHTMLAttributes } from "react";
 
-export default function SmoothSlider(props) {
+export default function SmoothSlider(props: InputHTMLAttributes<HTMLInputElement>) {
     // const [thumbBg, setThumbBg] = useState("#F7FFF6");
 
     // useEffect(() => {

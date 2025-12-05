@@ -13,13 +13,13 @@ import { ContactPanel } from "@/components/ContactPanel";
 
 type NavId = string;
 
-const defaultTabs: { id: NavId; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+const defaultTabs: { id: NavId; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
   { id: "about", label: "ABOUT ME", icon: HiBriefcase },
   { id: "comp", label: "COMPONENTS", icon: HiCollection },
   { id: "work", label: "WORK PROCESS", icon: HiCode },
 ];
 
-const iconFallbackMap: Record<string, React.ComponentType<{ size?: number }>> = {
+const iconFallbackMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   about: HiBriefcase,
   components: HiCollection,
   work: HiCode,

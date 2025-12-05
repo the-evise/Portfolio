@@ -18,7 +18,7 @@ const letterVariants = {
 
 const containerVariants = {
     hidden: { opacity: 0, y: 12 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export function Words({ typed, target }: WordsProps) {
@@ -32,7 +32,7 @@ export function Words({ typed, target }: WordsProps) {
      * But keep trailing space OUTSIDE nowrap so the entire line centers correctly
      */
     const wordGroups = useMemo(() => {
-        const groups: { word: { char: string; index: number }[], spaceIndex: number | null }[] = [];
+        const groups: { word: { char: string; index: number }[], spaceIndex: number }[] = [];
         let idx = 0;
 
         const words = target.split(" ").filter(Boolean);
@@ -139,7 +139,9 @@ export function Words({ typed, target }: WordsProps) {
                         return (
                             <motion.span
                                 key={index}
-                                ref={(node) => (charRefs.current[index] = node)}
+                                ref={(node) => {
+                                    charRefs.current[index] = node;
+                                }}
                                 className={cn("inline-block", color)}
                                 variants={letterVariants}
                                 animate={state}
@@ -153,7 +155,9 @@ export function Words({ typed, target }: WordsProps) {
                     {/* render the space AFTER the word */}
                     <motion.span
                         key={`s-${group.spaceIndex}`}
-                        ref={(node) => (charRefs.current[group.spaceIndex] = node)}
+                        ref={(node) => {
+                            charRefs.current[group.spaceIndex] = node;
+                        }}
                         className="inline-block text-mint-cream/30"
                         variants={letterVariants}
                         animate={

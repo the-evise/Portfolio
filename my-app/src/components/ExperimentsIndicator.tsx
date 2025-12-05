@@ -1,18 +1,18 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode} from "react";
 import {cn} from "@/utils/utils";
 import {HiPresentationChartLine, HiTerminal, HiViewGrid} from "react-icons/hi";
 import {LayoutGroup, motion, useAnimationControls, useInView} from "motion/react";
 import {animate} from "motion";
 
 
-const iconMap: Record<string, JSX.Element> = {
+const iconMap: Record<string, ReactNode> = {
     "Type Tracker": <HiTerminal/>,
     "Motion Visualizer": <HiPresentationChartLine/>,
     "Reactive Grid": <HiViewGrid/>,
 };
 
 export interface ExperimentTabProps {
-    label: "Type Tracker" | "Motion Visualizer" | "Reactive Grid";
+    label: string;
     index: number;
     isActive: boolean;
     onSelect: (index: number) => void;
@@ -28,7 +28,7 @@ function ExperimentTab({label, index, isActive, onSelect, total, buttonRef}: Exp
     }, [index, isActive, onSelect]);
 
     const handleKeyDown = useCallback(
-        (event: KeyboardEvent<HTMLButtonElement>) => {
+        (event: ReactKeyboardEvent<HTMLButtonElement>) => {
             switch (event.key) {
                 case "ArrowRight": {
                     event.preventDefault();

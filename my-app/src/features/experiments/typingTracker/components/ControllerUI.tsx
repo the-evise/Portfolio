@@ -56,7 +56,7 @@ export function ControllerUI({
         visible: {
             opacity: 1,
             y: 0,
-            transition: {type: "spring", stiffness: 240, damping: 26, staggerChildren: 0.08},
+            transition: {type: "spring" as const, stiffness: 240, damping: 26, staggerChildren: 0.08},
         },
     };
 

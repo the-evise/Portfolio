@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useAnimate } from "motion/react";
 import {HiPhone} from "react-icons/hi";
 import {HiCheckBadge} from "react-icons/hi2";
@@ -10,7 +10,7 @@ interface SocialLink {
   name: string;
   username: string;
   url: string;
-  icon: JSX.Element;
+  icon: ReactNode;
 }
 
 const SOCIAL_LINKS: SocialLink[] = [

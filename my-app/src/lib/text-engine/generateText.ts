@@ -4,7 +4,7 @@ import { injectNumbers } from "./injectNumbers";
 import { shuffle } from "./shuffle";
 import { markovGenerate } from "./markov";
 
-interface GenerateTextOptions {
+export interface GenerateTextOptions {
     mode: "time" | "words" | "quote";
     count: number;
     punctuation: boolean;

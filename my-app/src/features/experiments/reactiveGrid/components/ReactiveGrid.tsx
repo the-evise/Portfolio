@@ -139,10 +139,10 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
         [position, originPosition, activation.mode]
     );
 
-    const scale = useMotionValue(1);
-    const rotate = useMotionValue(0);
-    const glow = useMotionValue(0);
-    const lift = useMotionValue(0);
+    const scale = useMotionValue<number>(1);
+    const rotate = useMotionValue<number>(0);
+    const glow = useMotionValue<number>(0);
+    const lift = useMotionValue<number>(0);
     const boxShadow = useTransform(glow, (g) => {
         const accent = g <= 0.01 ? "" : `, 0 15px 30px rgba(${theme.glow}, ${g * 0.2})`;
         return `0 6px 12px rgba(6,6,14,0.08)${accent}`;
@@ -155,12 +155,12 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
             : `radial-gradient(circle at 50% 50%, rgba(${theme.glow}, ${0 * g}), transparent), ${theme.base}`
     );
 
-    const pullX = useMotionValue(0);
-    const pullY = useMotionValue(0);
+    const pullX = useMotionValue<number>(0);
+    const pullY = useMotionValue<number>(0);
     const contentScale = useTransform(scale, (s) => 1 / s);
     const contentRotate = useTransform(rotate, (r) => -r);
-    const combinedY = useTransform([lift, pullY], ([l, py]) => l + py);
-    const svgOpacity = useMotionValue(1);
+    const combinedY = useMotionValue<number>(0);
+    const svgOpacity = useMotionValue<number>(1);
 
     const playAnimation = useCallback(() => {
         const targetScale = modeScale(activation.mode);
@@ -229,6 +229,7 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
                 ease: "easeOut",
             });
         })();
+        combinedY.set(lift.get() + pullY.get());
 
         if (activation.mode === "magnet") {
             const deltaRow = originPosition.row - position.row;
@@ -264,6 +265,7 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
             pullX.set(0);
             pullY.set(0);
         }
+        combinedY.set(lift.get() + pullY.get());
 
         if (activation.originIndex === 3) {
             animate(svgOpacity, [1, 0.25, 1], {
@@ -277,6 +279,17 @@ function ReactiveTile({index, label, position, originPosition, theme, activation
     }, [activation.mode, delay, rotate, scale, glow, lift, position, originPosition, distanceFromOrigin, pullX, pullY]);
 
     useAnimatedTrigger(activation.timestamp, playAnimation);
+
+    useEffect(() => {
+        const update = () => combinedY.set(lift.get() + pullY.get());
+        const unsubLift = lift.on("change", update);
+        const unsubPull = pullY.on("change", update);
+        update();
+        return () => {
+            unsubLift();
+            unsubPull();
+        };
+    }, [combinedY, lift, pullY]);
 
     return (
         <motion.button

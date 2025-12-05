@@ -35,7 +35,7 @@ const SECTION_VARIANTS = {
         y: 0,
         transition: {
             duration: 0.6,
-            ease: "easeOut",
+            ease: [0.16, 1, 0.3, 1] as const,
             staggerChildren: 0.08,
             delayChildren: 0.08,
         },

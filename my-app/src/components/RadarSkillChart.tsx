@@ -11,10 +11,6 @@ import {
   type TooltipProps,
 } from "recharts";
 import type { PolarAngleAxisProps } from "recharts";
-import type {
-  ValueType,
-  NameType,
-} from "recharts/types/component/DefaultTooltipContent";
 import { HiOutlineInformationCircle } from "react-icons/hi";
 import { cn } from "@/utils/utils";
 
@@ -66,7 +62,9 @@ const SKILL_DATA: Record<
   },
 };
 
-type PolarTickProps = NonNullable<PolarAngleAxisProps["tick"]> & {
+type PolarTickProps = {
+  x?: number | string;
+  y?: number | string;
   payload?: { value: string };
   activeSkill?: string | null;
 };
@@ -94,7 +92,10 @@ const PolarTick = ({
   );
 };
 
-type RadarTooltipProps = TooltipProps<ValueType, NameType> & {
+type RadarTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ payload: SkillPoint; value?: number }>;
+  label?: string | number;
   onActiveChange?: (skill: string | null) => void;
 };
 
@@ -215,7 +216,7 @@ export default function RadarSkillChart({
         <ResponsiveContainer width="100%" height={chartHeight}>
           <RadarChart
             data={dataset.data}
-            margin={{ top: 10, bottom: 10 }}
+            margin={{ top: 10, bottom: 10, left: 0, right: 0 }}
             onMouseLeave={() => setActiveSkill(null)}
           >
             <PolarGrid stroke={dataset.gridColor} />

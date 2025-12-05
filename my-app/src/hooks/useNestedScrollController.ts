@@ -4,7 +4,7 @@ import { RefObject, useCallback, useMemo } from "react";
 import { NestedScrollController } from "@/components/FullScreenScroller";
 
 export function useNestedScrollController(
-    ref: RefObject<HTMLElement>
+    ref: RefObject<HTMLElement | null>
 ): NestedScrollController {
     const consumeScroll = useCallback(
         (deltaY: number) => {

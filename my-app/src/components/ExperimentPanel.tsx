@@ -54,10 +54,21 @@ function ExperimentPanel({
     [currentActive, experiments, renderExperiment]
   );
 
-  const baseX = useMotionValue(0);
-  const dragX = useMotionValue(0);
+  const baseX = useMotionValue<number>(0);
+  const dragX = useMotionValue<number>(0);
   const dragInfluenceX = useTransform(dragX, (v) => v * DRAG_INFLUENCE);
-  const trackX = useTransform([baseX, dragInfluenceX], ([base, drag]) => base + drag);
+  const trackX = useMotionValue<number>(0);
+
+  useEffect(() => {
+    const update = () => trackX.set(baseX.get() + dragInfluenceX.get());
+    const unsubBase = baseX.on("change", update);
+    const unsubDrag = dragInfluenceX.on("change", update);
+    update();
+    return () => {
+      unsubBase();
+      unsubDrag();
+    };
+  }, [baseX, dragInfluenceX, trackX]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panBlockedRef = useRef(false);
   const [slideWidth, setSlideWidth] = useState(0);
