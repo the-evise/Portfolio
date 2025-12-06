@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/utils/utils";
 
@@ -19,16 +20,28 @@ const illustrations = [
 ] as const;
 
 export default function IllustrationWork({ activeIndex, className }: IllustrationWorkProps) {
-    // Safety: prevent out-of-bounds
-    // const safeIndex = Math.max(0, Math.min(activeIndex, illustrations.length - 1));
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    useEffect(() => {
+        setIsLoaded(false);
+    }, [activeIndex]);
 
     return (
-        <div className={cn("relative size-full place-self-center rounded-3xl", className)}>
+        <div className={cn("relative size-full place-self-center overflow-hidden rounded-3xl", className)}>
+            {!isLoaded && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0C0C0C]">
+                    <span className="h-10 w-10 animate-spin rounded-full border-2 border-t-transparent border-tropical-indigo/80" />
+                </div>
+            )}
             <Image
-                src={illustrations[activeIndex-1]}
+                src={illustrations[activeIndex - 1]}
                 alt={`Work process step ${activeIndex}`}
                 fill
-                className="object-cover"
+                className={cn(
+                    "object-cover transition-opacity duration-300",
+                    isLoaded ? "opacity-100" : "opacity-0"
+                )}
+                onLoadingComplete={() => setIsLoaded(true)}
             />
         </div>
     );
