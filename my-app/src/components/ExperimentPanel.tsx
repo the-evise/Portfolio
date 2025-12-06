@@ -178,7 +178,7 @@ function ExperimentPanel({
   }, []);
 
   return (
-    <div className="p-1 sm:p-4 md:p-6 flex flex-col-reverse items-center justify-start gap-10 md:gap-4 md:justify-between h-[95%] min-h-[70%] w-full">
+    <div className="p-1 sm:p-4 md:p-6 flex flex-col-reverse items-center justify-center gap-10 md:gap-4 md:justify-between h-[95%] min-h-[70%] w-full">
       <ExperimentIndicator
         experiments={experiments}
         activeExperimentIndex={currentActive}
@@ -193,7 +193,7 @@ function ExperimentPanel({
           aria-label="Experiment carousel"
         >
           <motion.div
-            className="flex"
+            className="flex w-full"
             onPanStart={handlePanStart}
             onPan={handlePan}
             onPanEnd={handlePanEnd}
@@ -203,7 +203,7 @@ function ExperimentPanel({
             {slides.map(({ label, content }, index) => (
               <div
                 key={label}
-                className="min-w-full shrink-0 px-2 py-4 md:p-6 focus:outline-none"
+                className="min-w-full flex items-start px-2 py-1 md:p-6 focus:outline-none"
                 aria-hidden={currentActive !== index}
                 role="group"
                 aria-label={`Experiment ${index + 1}: ${label}`}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import FullScreenScroller, { FullScreenScrollSection } from "@/components/FullScreenScroller";
 import Navigation from "@/components/Navigation";
 import AboutMeCard from "@/components/AboutMeCard";
-import { NestedScrollArea } from "@/components/NestedScrollArea";
 import MotionVisualizer from "@/features/experiments/motionVisualizer/components/MotionVisualizer";
 import ReactiveGrid from "@/features/experiments/reactiveGrid/components/ReactiveGrid";
 import { TypingTracker } from "@/features/experiments/typingTracker/components/TypingTracker";
@@ -13,9 +12,9 @@ import Headline from "@/components/Headline";
 import WorkProcess from "@/components/WorkProcess";
 
 const EXPERIMENTS = [
-  { label: "Type Tracker", Component: TypingTracker },
-  { label: "Motion Visualizer", Component: MotionVisualizer },
-  { label: "Reactive Grid", Component: ReactiveGrid },
+    { label: "Type Tracker", Component: TypingTracker },
+    { label: "Motion Visualizer", Component: MotionVisualizer },
+    { label: "Reactive Grid", Component: ReactiveGrid },
 ] as const;
 
 const experimentLabels = EXPERIMENTS.map((exp) => exp.label);

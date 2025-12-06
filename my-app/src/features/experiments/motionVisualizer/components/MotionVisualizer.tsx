@@ -113,7 +113,7 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
 
     return (
         <Motion.section
-            className={cn("flex flex-col gap-1 !w-fit place-self-center", className)}
+            className={cn("flex flex-col gap-1 !w-fit place-self-center mx-auto", className)}
             initial={{opacity: 0, scale: 0.95, y: 24}}
             whileInView={{opacity: 1, scale: 1, y: 0}}
             viewport={{once: true, amount: 0.35}}

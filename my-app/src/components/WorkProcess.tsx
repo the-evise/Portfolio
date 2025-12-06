@@ -53,7 +53,7 @@ export default function WorkProcess() {
 
     return (
         <motion.div
-            className="flex w-full max-w-4xl flex-col items-center gap-6 text-center md:gap-10 lg:gap-12"
+            className="flex w-full max-w-4xl flex-col items-center gap-6 text-center md:gap-6 lg:gap-8"
             onWheel={handleWheel}
             initial={{ opacity: 0, scale: 0.95, y: 24 }}
             whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -64,7 +64,7 @@ export default function WorkProcess() {
                 <button
                     type="button"
                     aria-label="Previous step"
-                    className="hidden rounded-full border border-tropical-indigo/40 p-3 text-tropical-indigo transition hover:border-tropical-indigo hover:bg-tropical-indigo/10 md:inline-flex"
+                    className="hidden rounded-full border border-tropical-indigo/40 p-3 text-tropical-indigo transition hover:border-tropical-indigo hover:bg-tropical-indigo/10 md:inline-flex cursor-pointer"
                     onClick={() => goTo("prev")}
                 >
                     <HiOutlineChevronLeft />
@@ -107,7 +107,7 @@ export default function WorkProcess() {
                 <button
                     type="button"
                     aria-label="Next step"
-                    className="hidden rounded-full border border-tropical-indigo/40 p-3 text-tropical-indigo transition hover:border-tropical-indigo hover:bg-tropical-indigo/10 md:inline-flex"
+                    className="hidden rounded-full border border-tropical-indigo/40 p-3 text-tropical-indigo transition hover:border-tropical-indigo hover:bg-tropical-indigo/10 md:inline-flex cursor-pointer"
                     onClick={() => goTo("next")}
                 >
                     <HiOutlineChevronRight />

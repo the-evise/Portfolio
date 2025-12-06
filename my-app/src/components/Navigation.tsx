@@ -182,7 +182,7 @@ function LogoLayers({ rotations }: { rotations: number }) {
     return (
         <motion.div
             ref={scope}
-            className="relative flex justify-center items-center h-full w-full origin-center"
+            className="relative flex justify-center items-center h-full w-full origin-center cursor-pointer"
             initial={{ opacity: 0 }}
             whileInView={{
                 opacity: 1,

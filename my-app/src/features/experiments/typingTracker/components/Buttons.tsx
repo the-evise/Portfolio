@@ -29,7 +29,7 @@ export function Buttons({
                 : "Next Test";
 
     return (
-        <div className="flex items-center gap-1 md:gap-3 font-mono mt-10">
+        <div className="flex items-center gap-1 md:gap-3 font-mono mt-2">
             <Timer
                 mode={mode}
                 timeLeftMs={timeLeftMs}

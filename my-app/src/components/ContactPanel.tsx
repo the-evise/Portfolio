@@ -16,20 +16,20 @@ interface SocialLink {
 const SOCIAL_LINKS: SocialLink[] = [
     {
         name: "Email",
-        username: "evise.apply",
-        url: "evise.apply@gmail.com",
+        username: "evise.apply@gmail.com",
+        url: "mailto:evise.apply@gmail.com",
         icon: <AiOutlineGoogle />,
     },
   {
     name: "Instagram",
-    username: "robert.evise",
-    url: "https://instagram.com/robert.evise",
+    username: "the_evise",
+    url: "https://instagram.com/the_evise",
     icon: <AiFillInstagram />,
   },
   {
     name: "Medium",
-    username: "robertevise",
-    url: "https://soundcloud.com/robertevise",
+    username: "theevise",
+    url: "https://medium.com/@theevise",
     icon: <AiFillMediumCircle />,
   },
 ];
@@ -77,7 +77,7 @@ export function ContactPanel() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
-        className="group flex size-10 items-center justify-center rounded-lg border border-white/20 bg-night/80 text-white/80 transition hover:border-white/40 hover:text-mint-cream focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-tropical-indigo"
+        className="group flex size-10 items-center justify-center rounded-lg border border-white/20 bg-night/80 text-white/80 transition hover:border-white/40 hover:text-mint-cream focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-tropical-indigo cursor-pointer"
         onTapStart={() => setPressed(true)}
         onTap={() => {
           setPressed(true);

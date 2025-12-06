@@ -111,8 +111,10 @@ export function TypingTracker() {
     // ====== RENDER ======
     return (
         <motion.section
-            className="flex flex-col gap-8 max-w-[800px] items-center py-6 px-1 bg-ruddy-blue rounded-4xl shadow-lg mx-auto"
+            className="w-full h-full flex flex-col gap-4 max-w-[800px] items-center py-6 px-1 bg-ruddy-blue rounded-4xl shadow-lg mx-auto justify-between"
             initial={{opacity: 0, scale: 0.95, y: 24}}
+            whileInView={{opacity: 1, scale: 1, y: 0}}
+            viewport={{once: true, amount: 0.35}}
             animate={{opacity: 1, scale: uiState === "summary" ? 1.02 : 1}}
             transition={{type: "spring", stiffness: 220, damping: 28}}
         >
@@ -143,7 +145,7 @@ export function TypingTracker() {
                     spellCheck={false}
                 />
 
-                <motion.div className="min-h-[200px]" layout>
+                <motion.div className="w-[95%] mx-auto" layout>
                     <AnimatePresence mode="wait">
 
                         {/* PRIORITY: 1 — LOADING */}

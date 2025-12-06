@@ -102,14 +102,14 @@ export function Words({ typed, target }: WordsProps) {
             initial="hidden"
             animate="visible"
         >
-            {/* CARET */}
-            {showCaret && (
-                <motion.span
-                    className="pointer-events-none absolute w-[2px] rounded-full bg-tropical-indigo shadow-[0_0_12px_rgba(99,102,241,0.6)]"
-                    animate={{ x: caretRect.x, y: caretRect.y, height: caretRect.height }}
-                    transition={{ type: "spring", stiffness: 600, damping: 40 }}
-                />
-            )}
+            {/*/!* CARET *!/*/}
+            {/*{showCaret && (*/}
+            {/*    <motion.span*/}
+            {/*        className="pointer-events-none absolute w-[2px] rounded-full bg-tropical-indigo shadow-[0_0_12px_rgba(99,102,241,0.6)]"*/}
+            {/*        animate={{ x: caretRect.x, y: caretRect.y, height: caretRect.height }}*/}
+            {/*        transition={{ type: "spring", stiffness: 600, damping: 40 }}*/}
+            {/*    />*/}
+            {/*)}*/}
 
             {/* WORDS + SPACES */}
             {wordGroups.map((group, wi) => (
@@ -118,7 +118,7 @@ export function Words({ typed, target }: WordsProps) {
                     {group.word.map(({ char, index }) => {
                         const typedChar = typed[index];
 
-                        let color = "text-mint-cream/60";
+                        let color = "text-mint-cream/80";
                         let state: keyof typeof letterVariants = "idle";
 
                         if (typedChar !== undefined) {

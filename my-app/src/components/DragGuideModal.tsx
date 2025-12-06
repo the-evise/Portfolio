@@ -24,7 +24,7 @@ export default function DragGuideModal({
         <motion.div
           className="fixed inset-0 z-[140] flex items-center justify-center bg-mint-cream/10 backdrop-blur-sm px-4"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          animate={{ opacity: 1, transition: {delay: 2, stiffness:200, mass:10, damping:28} }}
           exit={{ opacity: 0 }}
         >
           <motion.div
