@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useAnimate } from "motion/react";
 import {HiPhone} from "react-icons/hi";
 import {HiCheckBadge} from "react-icons/hi2";
@@ -66,7 +66,7 @@ export function ContactPanel() {
     });
   }, []);
 
-  const popoverId = useMemo(() => `contact-panel-${Math.random().toString(36).slice(2, 7)}`, []);
+  const popoverId = useId();
 
   return (
     <div className="relative">

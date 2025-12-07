@@ -1,7 +1,7 @@
 "use client";
 import {useCallback, useMemo, useRef, useState, useEffect} from "react";
 import {motion, useMotionValue, animate, useTransform} from "motion/react";
-import Image from "next/image";
+import type { ValueAnimationTransition } from "motion";
 
 const GRID_ITEMS = Array.from({length: 12}, (_, i) => i + 1);
 const MODES = ["ripple", "swirl", "stream", "burst"] as const;
@@ -27,6 +27,7 @@ const TILE_THEMES = [
 ] as const;
 const MAGNET_TILES = new Set([5, 6]);
 const DEFAULT_COLUMNS = 4;
+const LONG_PRESS_MS = 520;
 type AnimationMode = (typeof MODES)[number] | "magnet";
 
 interface GridState {
@@ -35,8 +36,27 @@ interface GridState {
     timestamp: number;
 }
 
+interface TileMetrics {
+    position: Position;
+    originPosition: Position;
+    distanceFromOrigin: number;
+    delay: number;
+}
+
+interface TrailSegment {
+    id: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    color: string;
+}
+
 export default function ReactiveGrid() {
     const gridRef = useRef<HTMLDivElement | null>(null);
+    const lastActivateRef = useRef(0);
+    const trailCentersRef = useRef<{ x: number; y: number }[]>([]);
+    const [isTouchLayout, setIsTouchLayout] = useState(false);
     const [columnCount, setColumnCount] = useState(DEFAULT_COLUMNS);
     const [state, setState] = useState<GridState>({
         mode: "ripple",
@@ -44,10 +64,16 @@ export default function ReactiveGrid() {
         timestamp: Date.now(),
     });
 
-    const handleActivate = useCallback((index: number) => {
-        const mode: AnimationMode = MAGNET_TILES.has(index + 1)
-            ? "magnet"
-            : MODES[index % MODES.length];
+    const handleActivate = useCallback((index: number, overrideMode?: AnimationMode) => {
+        const now = performance.now();
+        if (now - lastActivateRef.current < 120) return; // throttle rapid spam
+        lastActivateRef.current = now;
+
+        const mode: AnimationMode = overrideMode
+            ? overrideMode
+            : MAGNET_TILES.has(index + 1)
+                ? "magnet"
+                : MODES[index % MODES.length];
         setState({mode, originIndex: index, timestamp: Date.now()});
     }, []);
 
@@ -60,15 +86,18 @@ export default function ReactiveGrid() {
         const node = gridRef.current;
         if (!node) return;
 
+        let ticking = false;
         const computeColumns = () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
             const styles = window.getComputedStyle(node);
             const template = styles.getPropertyValue("grid-template-columns");
-            const count = template.split(" ").filter(Boolean).length;
-            if (count > 0) {
-                setColumnCount(count);
-            } else {
-                setColumnCount(DEFAULT_COLUMNS);
-            }
+                const count = template.split(" ").filter(Boolean).length;
+                const nextCount = count > 0 ? count : DEFAULT_COLUMNS;
+                setColumnCount((prev) => (prev === nextCount ? prev : nextCount));
+                ticking = false;
+            });
         };
 
         computeColumns();
@@ -77,7 +106,81 @@ export default function ReactiveGrid() {
         return () => observer.disconnect();
     }, []);
 
-return (
+    useEffect(() => {
+        // Preload number assets to avoid first-click jank
+        GRID_ITEMS.forEach((num) => {
+            const img = new Image();
+            img.src = `/nums/${num}.svg`;
+        });
+    }, []);
+
+    useEffect(() => {
+        const update = () => setIsTouchLayout(window.innerWidth < 640);
+        update();
+        window.addEventListener("resize", update);
+        return () => window.removeEventListener("resize", update);
+    }, []);
+
+    const originPosition = positions[state.originIndex] ?? {row: 0, col: 0};
+
+    const metrics = useMemo<TileMetrics[]>(
+        () =>
+            positions.map((position) => {
+                const distanceFromOrigin = Math.hypot(
+                    position.row - originPosition.row,
+                    position.col - originPosition.col
+                );
+            return {
+                position,
+                originPosition,
+                distanceFromOrigin,
+                delay: calculateDelay(position, originPosition, state.mode),
+            };
+        }),
+        [positions, originPosition, state.mode]
+    );
+
+    const [trails, setTrails] = useState<TrailSegment[]>([]);
+
+    const addTrails = useCallback(
+        (activation: GridState) => {
+            if (!gridRef.current) return;
+            const buttons = Array.from(gridRef.current.querySelectorAll("button"));
+            if (!buttons.length) return;
+
+            if (!trailCentersRef.current.length) {
+                const parentRect = gridRef.current.getBoundingClientRect();
+                trailCentersRef.current = buttons.map((btn) => {
+                    const rect = btn.getBoundingClientRect();
+                    return {
+                        x: rect.left - parentRect.left + rect.width / 2,
+                        y: rect.top - parentRect.top + rect.height / 2,
+                    };
+                });
+            }
+
+            const centers = trailCentersRef.current;
+
+            const originCenter = centers[activation.originIndex];
+            if (!originCenter) return;
+
+            const modeColor = trailColorForMode(activation.mode);
+            const newSegments = centers.slice(0, 10).map((center, idx) => ({
+                id: `${activation.timestamp}-${idx}`,
+                x1: originCenter.x,
+                y1: originCenter.y,
+                x2: center.x,
+                y2: center.y,
+                color: modeColor,
+            }));
+
+            setTrails(newSegments);
+            setTimeout(() => setTrails([]), 700);
+        },
+        []
+    );
+
+    return (
         <motion.div
             className="w-fit mx-auto rounded-3xl border border-white/5 bg-ruddy-blue p-4 md:p-8"
             initial={{ opacity: 0, scale: 0.95, y: 24 }}
@@ -99,19 +202,38 @@ return (
           md:gap-[30px]
           mx-auto
         "
+                style={{ position: "relative" }}
             >
                 {GRID_ITEMS.map((num, index) => (
                     <ReactiveTile
                         key={num}
                         index={index}
-                        position={positions[index]}
-                        originPosition={positions[state.originIndex]}
+                        metrics={metrics[index]}
                         theme={TILE_THEMES[index % TILE_THEMES.length]}
                         label={num}
-                        activation={state}
-                        onActivate={handleActivate}
+                activation={state}
+                onActivate={handleActivate}
+                isTouchLayout={isTouchLayout}
+                onTrail={addTrails}
+            />
+        ))}
+            <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                {trails.map((line) => (
+                    <motion.line
+                        key={line.id}
+                        x1={line.x1}
+                        y1={line.y1}
+                        x2={line.x2}
+                        y2={line.y2}
+                        stroke={line.color}
+                        strokeWidth={1.8}
+                        strokeLinecap="round"
+                        initial={{ opacity: 0.7, pathLength: 0 }}
+                        animate={{ opacity: 0, pathLength: 1 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                 ))}
+            </svg>
             </div>
         </motion.div>
     );
@@ -120,203 +242,226 @@ return (
 interface ReactiveTileProps {
     index: number;
     label: number;
-    position: Position;
-    originPosition: Position;
+    metrics: TileMetrics;
     theme: (typeof TILE_THEMES)[number];
     activation: GridState;
-    onActivate: (index: number) => void;
+    onActivate: (index: number, overrideMode?: AnimationMode) => void;
+    isTouchLayout: boolean;
+    onTrail: (activation: GridState) => void;
 }
 
-function ReactiveTile({index, label, position, originPosition, theme, activation, onActivate}: ReactiveTileProps) {
-
-    const distanceFromOrigin = useMemo(
-        () => Math.hypot(position.row - originPosition.row, position.col - originPosition.col),
-        [position, originPosition]
-    );
-
-    const delay = useMemo(
-        () => calculateDelay(position, originPosition, activation.mode),
-        [position, originPosition, activation.mode]
-    );
+function ReactiveTile({index, label, metrics, theme, activation, onActivate, isTouchLayout, onTrail}: ReactiveTileProps) {
+    const {position, originPosition, delay, distanceFromOrigin} = metrics;
 
     const scale = useMotionValue<number>(1);
     const rotate = useMotionValue<number>(0);
-    const glow = useMotionValue<number>(0);
-    const lift = useMotionValue<number>(0);
-    const boxShadow = useTransform(glow, (g) => {
-        const accent = g <= 0.01 ? "" : `, 0 15px 30px rgba(${theme.glow}, ${g * 0.2})`;
-        return `0 6px 12px rgba(6,6,14,0.08)${accent}`;
-    });
-
-
-    const background = useTransform(glow, (g) =>
-        g <= 0.01
-            ? theme.base
-            : `radial-gradient(circle at 50% 50%, rgba(${theme.glow}, ${0 * g}), transparent), ${theme.base}`
-    );
+    const background = theme.base;
 
     const pullX = useMotionValue<number>(0);
-    const pullY = useMotionValue<number>(0);
+    const y = useMotionValue<number>(0);
     const contentScale = useTransform(scale, (s) => 1 / s);
     const contentRotate = useTransform(rotate, (r) => -r);
-    const combinedY = useMotionValue<number>(0);
     const svgOpacity = useMotionValue<number>(1);
+    const [particles, setParticles] = useState<Particle[]>([]);
+    const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const holdTriggeredRef = useRef(false);
+    const clickHandledRef = useRef(false);
 
     const playAnimation = useCallback(() => {
+        const isMagnet = activation.mode === "magnet";
+
+        // Vercel-style motion profiles
+        const SPRING_SCALE = {
+            type: "spring" as const,
+            stiffness: 800,
+            damping: 40,
+            mass: 0.8,
+        };
+
+        const SPRING_ROTATE = {
+            type: "spring" as const,
+            stiffness: 520,
+            damping: 36,
+            mass: 0.7,
+        };
+
+        const SPRING_PULL = {
+            type: "spring" as const,
+            stiffness: 620,
+            damping: 40,
+            mass: 0.75,
+        };
+
+        const SPRING_LIFT = {
+            type: "spring" as const,
+            stiffness: 820,
+            damping: 40,
+            mass: 0.75,
+        };
+
+        // Target values (same logic you already have)
         const targetScale = modeScale(activation.mode);
         const targetRotation = modeRotation(activation.mode, position, originPosition);
 
-        (async () => {
-            await animate(scale, targetScale, {
-                delay,
-                duration: 0.45,
-                ease: activation.mode === "burst" ? [0.34, 1.56, 0.64, 1] : "easeOut",
-            });
-            await animate(scale, 0.95, {
-                duration: 0.2,
-                ease: "easeInOut",
-            });
-            await animate(scale, 1, {
-                duration: 0.25,
-                ease: "easeOut",
-            });
-        })();
+        const deltaRow = originPosition.row - position.row;
+        const deltaCol = originPosition.col - position.col;
+        const norm = Math.max(Math.hypot(deltaRow, deltaCol), 0.0001);
+        const pullStrength = isMagnet ? (isTouchLayout ? 12 : 18) : 0;
 
-        (async () => {
-            await animate(rotate, targetRotation, {
-                delay,
-                type: "spring",
-                stiffness: 280,
-                damping: 22,
-                mass: 0.7,
-            });
-            await animate(rotate, 0, {
-                duration: 0.4,
-                ease: "easeOut",
-            });
-        })();
+        const targetX = (deltaCol / norm) * pullStrength;
+        const targetY = (deltaRow / norm) * pullStrength;
 
-        (async () => {
-            await animate(glow, 0.55, {
-                delay,
-                type: "spring",
-                stiffness: 220,
-                damping: 16,
-            });
-            await animate(glow, 0.2, {
-                duration: 0.25,
-                ease: "easeOut",
-            });
-            await animate(glow, 0, {
-                duration: 0.25,
-                ease: "easeOut",
-            });
-        })();
+        // --- Vercel-style animations ---
 
-        (async () => {
-            await animate(lift, -24, {
-                delay,
-                type: "spring",
-                stiffness: 260,
-                damping: 20,
-            });
-            await animate(lift, 6, {
-                duration: 0.3,
-                ease: "easeOut",
-            });
-            await animate(lift, 0, {
-                duration: 0.3,
-                ease: "easeOut",
-            });
-        })();
-        combinedY.set(lift.get() + pullY.get());
+        // Clean scale and return to rest (velocity-aware)
+        void continueSpring(scale, [scale.get(), targetScale, 1], SPRING_SCALE, delay);
 
-        if (activation.mode === "magnet") {
-            const deltaRow = originPosition.row - position.row;
-            const deltaCol = originPosition.col - position.col;
-            const norm = Math.max(Math.hypot(deltaRow, deltaCol), 0.0001);
-            const pullStrength = 18;
-            const targetX = (deltaCol / norm) * pullStrength;
-            const targetY = (deltaRow / norm) * pullStrength;
+        // Sharp rotational micro-tilt and return
+        void continueSpring(rotate, [rotate.get(), targetRotation, 0], SPRING_ROTATE, delay);
 
-            (async () => {
-                await animate(pullX, targetX, {
-                    delay,
-                    duration: 0.45,
-                    ease: "easeOut",
-                });
-                await animate(pullX, 0, {
-                    duration: 0.4,
-                    ease: "easeOut",
-                });
-            })();
-            (async () => {
-                await animate(pullY, targetY, {
-                    delay,
-                    duration: 0.45,
-                    ease: "easeOut",
-                });
-                await animate(pullY, 0, {
-                    duration: 0.4,
-                    ease: "easeOut",
-                });
-            })();
-        } else {
-            pullX.set(0);
-            pullY.set(0);
-        }
-        combinedY.set(lift.get() + pullY.get());
+        // Subtle magnet pull
+        void continueSpring(pullX, [pullX.get(), targetX, 0], SPRING_PULL, delay);
 
+        // Clean vertical lift with slightly softer return
+        void continueSpring(y, [y.get(), -16 + targetY, 0], SPRING_LIFT, delay);
+
+        // Subtle SVG pulse only on your special index
         if (activation.originIndex === 3) {
-            animate(svgOpacity, [1, 0.25, 1], {
-                delay: distanceFromOrigin * 0.08,
-                duration: 0.8,
-                ease: "easeOut",
+            const pulseDelay = distanceFromOrigin * 0.05;
+            void continueSpring(svgOpacity, [svgOpacity.get(), 0.35, 1], {
+                delay: pulseDelay,
+                type: "spring",
+                stiffness: 700,
+                damping: 48,
+                mass: 0.7,
             });
         } else {
             svgOpacity.set(1);
         }
-    }, [activation.mode, delay, rotate, scale, glow, lift, position, originPosition, distanceFromOrigin, pullX, pullY]);
-
-    useAnimatedTrigger(activation.timestamp, playAnimation);
+    }, [
+        activation.mode,
+        activation.originIndex,
+        position,
+        originPosition,
+        scale,
+        rotate,
+        pullX,
+        y,
+        svgOpacity,
+        delay,
+        distanceFromOrigin,
+        isTouchLayout
+    ]);
 
     useEffect(() => {
-        const update = () => combinedY.set(lift.get() + pullY.get());
-        const unsubLift = lift.on("change", update);
-        const unsubPull = pullY.on("change", update);
-        update();
-        return () => {
-            unsubLift();
-            unsubPull();
-        };
-    }, [combinedY, lift, pullY]);
+        if (activation.originIndex === index) {
+            setParticles(generateParticles(activation.timestamp));
+        } else if (particles.length) {
+            setParticles([]);
+        }
+    }, [activation.originIndex, activation.timestamp, index, particles.length]);
+
+    const clearHold = useCallback(() => {
+        if (holdTimeoutRef.current) {
+            clearTimeout(holdTimeoutRef.current);
+            holdTimeoutRef.current = null;
+        }
+    }, []);
+
+    const handlePointerDown = useCallback(() => {
+        holdTriggeredRef.current = false;
+        clearHold();
+        holdTimeoutRef.current = setTimeout(() => {
+            holdTriggeredRef.current = true;
+            onActivate(index, "magnet");
+            onTrail({
+                mode: "magnet",
+                originIndex: index,
+                timestamp: Date.now(),
+            });
+            clickHandledRef.current = true;
+        }, LONG_PRESS_MS);
+    }, [clearHold, index, onActivate, onTrail]);
+
+    const handlePointerUp = useCallback(() => {
+        clearHold();
+        if (!holdTriggeredRef.current) {
+            onActivate(index);
+            onTrail({
+                mode: activation.mode,
+                originIndex: index,
+                timestamp: Date.now(),
+            });
+            clickHandledRef.current = true;
+        }
+    }, [clearHold, index, onActivate, onTrail, activation.mode]);
+
+    const handleClick = useCallback(() => {
+        if (clickHandledRef.current) {
+            clickHandledRef.current = false;
+            return;
+        }
+        onActivate(index);
+        onTrail({
+            mode: activation.mode,
+            originIndex: index,
+            timestamp: Date.now(),
+        });
+    }, [activation.mode, index, onActivate, onTrail]);
+
+    useEffect(() => () => clearHold(), [clearHold]);
+
+    useAnimatedTrigger(activation.timestamp, playAnimation);
 
     return (
         <motion.button
             type="button"
-            onClick={() => onActivate(index)}
+            onClick={handleClick}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={clearHold}
+            onContextMenu={(event) => event.preventDefault()}
             style={{
                 rotate,
                 scale,
                 x: pullX,
-                y: combinedY,
-                boxShadow,
+                y,
                 backgroundImage: background,
                 color: theme.text,
                 borderColor: theme.border,
             }}
             className="
-        flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
-        md:size-[115px]
-        focus-visible:outline focus-visible:outline-tropical-indigo
-      "
+                    relative overflow-hidden flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
+                    md:size-[115px]
+                    focus-visible:outline focus-visible:outline-tropical-indigo cursor-pointer
+                  "
             whileTap={{scale: 0.95}}
         >
+            <div className="pointer-events-none absolute inset-0">
+                {particles.map((particle) => (
+                    <motion.span
+                        key={particle.id}
+                        className="absolute rounded-full"
+                        style={{
+                            width: particle.size,
+                            height: particle.size,
+                            left: "50%",
+                            top: "50%",
+                            marginLeft: -particle.size / 2,
+                            marginTop: -particle.size / 2,
+                            backgroundColor: `rgba(${theme.glow}, 0.38)`,
+                        }}
+                        initial={{ opacity: 0.9, scale: 1, x: 0, y: 0 }}
+                        animate={{ opacity: 0, scale: 0.6, x: particle.dx, y: particle.dy }}
+                        transition={{ duration: particle.duration, delay: particle.delay, ease: "easeOut" }}
+                    />
+                ))}
+            </div>
             <motion.div
                 className="relative h-7 w-8 overflow-hidden sm:h-8 sm:w-9 md:h-10 md:w-12"
                 style={{scale: contentScale, rotate: contentRotate, opacity: svgOpacity}}
             >
-                <Image className="object-contain" src={`/nums/${label}.svg`} alt={String(label)} fill/>
+                <img className="object-contain h-full w-full" src={`/nums/${label}.svg`} alt={String(label)} />
             </motion.div>
         </motion.button>
     );
@@ -366,11 +511,11 @@ function modeScale(mode: AnimationMode) {
         case "ripple":
             return 1.3;
         case "swirl":
-            return 1.2;
+            return 1.4;
         case "stream":
             return 1.08;
         case "burst":
-            return 1.4;
+            return 1.1;
         case "magnet":
             return 1.1;
         default:
@@ -383,14 +528,87 @@ function modeRotation(mode: AnimationMode, position: Position, origin: Position)
         case "ripple":
             return 0;
         case "swirl":
-            return 8 * Math.sign(position.col - origin.col || 1);
+            return 6 * Math.sign(position.col - origin.col || 1);
         case "stream":
-            return (position.row - origin.row) * 4;
+            return (position.row - origin.row) * 2;
         case "burst":
-            return (Math.random() - 0.5) * 14;
+            return 8 * Math.sign(position.col - origin.col || 1);
         case "magnet":
-            return (origin.col - position.col) * 2;
+            return 0;
         default:
             return 0;
+    }
+}
+
+function trailColorForMode(mode: AnimationMode) {
+    switch (mode) {
+        case "ripple":
+            return "rgba(128,156,255,0.6)";
+        case "swirl":
+            return "rgba(219,105,135,0.6)";
+        case "stream":
+            return "rgba(104,180,255,0.6)";
+        case "burst":
+            return "rgba(255,214,102,0.6)";
+        case "magnet":
+            return "rgba(255,255,255,0.5)";
+        default:
+            return "rgba(255,255,255,0.4)";
+    }
+}
+
+interface Particle {
+    id: number;
+    dx: number;
+    dy: number;
+    size: number;
+    duration: number;
+    delay: number;
+}
+
+function generateParticles(seedSource: number, count = 10): Particle[] {
+    const rng = mulberry32(seedSource | 0);
+    const particles: Particle[] = [];
+    for (let i = 0; i < count; i++) {
+        const angle = rng() * Math.PI * 2;
+        const radius = 10 + rng() * 26; // spread
+        particles.push({
+            id: seedSource + i,
+            dx: Math.cos(angle) * radius,
+            dy: Math.sin(angle) * radius,
+            size: 6 + rng() * 8,
+            duration: 0.45 + rng() * 0.3,
+            delay: rng() * 0.08,
+        });
+    }
+    return particles;
+}
+
+function mulberry32(a: number) {
+    let t = a + 0x6D2B79F5;
+    return function () {
+        t |= 0;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+async function continueSpring(
+    value: ReturnType<typeof useMotionValue<number>>,
+    frames: number[],
+    springConfig: ValueAnimationTransition<number>,
+    delay = 0
+) {
+    for (let i = 0; i < frames.length - 1; i++) {
+        const target = frames[i + 1];
+        const velocity = value.getVelocity();
+
+        await animate<number>(value, target, {
+            ...springConfig,
+            delay: i === 0 ? delay : 0,
+            velocity,
+            restSpeed: 0.001,
+        }).finished;
     }
 }
