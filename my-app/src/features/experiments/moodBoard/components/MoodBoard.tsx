@@ -142,7 +142,7 @@ export default function MoodBoard({ mood, version }: MoodBoardProps) {
                                     alt=""
                                     fill
                                     sizes="(min-width: 1024px) 26vw, (min-width: 768px) 40vw, 90vw"
-                                    className="object-cover"
+                                    className="object-cover h-full w-full"
                                 />
                             </div>
                         ))}

@@ -14,12 +14,17 @@ export default function SmoothSlider(props: InputHTMLAttributes<HTMLInputElement
                 [&::-webkit-slider-runnable-track]:h-3
                 [&::-webkit-slider-runnable-track]:rounded-[3px]
                 [&::-webkit-slider-runnable-track]:bg-mint-cream/40
+
                 [&::-moz-range-track]:h-3
                 [&::-moz-range-track]:rounded-[3px]
                 [&::-moz-range-track]:bg-mint-cream/40
+                [&::-moz-range-progress]:bg-mint-cream/60
+
                 [&::-ms-track]:h-3
                 [&::-ms-track]:rounded-[3px]
                 [&::-ms-track]:bg-mint-cream/40
+                [&::-ms-fill-lower]:bg-mint-cream/60
+                [&::-ms-fill-upper]:bg-mint-cream/30
 
                 [&::-webkit-slider-thumb]:w-[28px]
                 [&::-webkit-slider-thumb]:h-5

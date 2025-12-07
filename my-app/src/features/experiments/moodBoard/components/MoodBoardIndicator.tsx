@@ -45,9 +45,13 @@ export default function MoodBoardIndicator({ onChange, initial = "whale" }: Mood
                             : "border-blue-200/40 hover:border-blue-300 cursor-pointer"
                     )}
                     whileHover={{ scale: 0.97 }}
-                    whileTap={{ scale: 1.1 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 800, damping: 10, mass: 0.1 }}
+                    whileTap={{ scale: 1.05 }}
+                    animate={
+                        active === mood
+                            ? { scale: 1.05, y: -3, opacity: 1 }
+                            : { scale: 1, y: 0, opacity: 0.88 }
+                    }
+                    transition={{ type: "spring", stiffness: 520, damping: 24, mass: 0.6 }}
                 >
                     <Emoji
                         name={mood}

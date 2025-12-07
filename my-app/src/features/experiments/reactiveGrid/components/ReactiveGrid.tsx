@@ -1,33 +1,16 @@
 "use client";
-import {useCallback, useMemo, useRef, useState, useEffect} from "react";
-import {motion, useMotionValue, animate, useTransform} from "motion/react";
-import type { ValueAnimationTransition } from "motion";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { animate } from "motion";
+import { motion, useMotionValue } from "motion/react";
+import type { MotionValue, ValueAnimationTransition } from "motion";
+import { usePrecomputedGrid } from "@/features/experiments/reactiveGrid/hooks/usePrecomputedGrid";
 
-const GRID_ITEMS = Array.from({length: 12}, (_, i) => i + 1);
 const MODES = ["ripple", "swirl", "stream", "burst"] as const;
-const TILE_THEMES = [
-    {
-        base: "linear-gradient(135deg,#F7FFF6,#E6F0FF)",
-        glow: "128,156,255",
-        border: "rgba(255,255,255,0.4)",
-        text: "#0F172A"
-    },
-    {
-        base: "linear-gradient(135deg,#FFF3F3,#FFD7EF)",
-        glow: "219,105,135",
-        border: "rgba(255,255,255,0.35)",
-        text: "#3F0F23"
-    },
-    {
-        base: "linear-gradient(135deg,#EEF4FF,#D2F5FF)",
-        glow: "104,180,255",
-        border: "rgba(255,255,255,0.3)",
-        text: "#0B1120"
-    },
-] as const;
+
 const MAGNET_TILES = new Set([5, 6]);
-const DEFAULT_COLUMNS = 4;
+const DEFAULT_COLUMNS = 3;
 const LONG_PRESS_MS = 520;
+
 type AnimationMode = (typeof MODES)[number] | "magnet";
 
 interface GridState {
@@ -41,6 +24,20 @@ interface TileMetrics {
     originPosition: Position;
     distanceFromOrigin: number;
     delay: number;
+    theme: {
+        base: string;
+        border: string;
+        text: string;
+        glow: string;
+        className: string;
+    };
+    variation: {
+        scaleJitter: number;
+        rotateJitter: number;
+        liftJitter: number;
+        svgOpacity: number;
+        brightness: number;
+    };
 }
 
 interface TrailSegment {
@@ -52,11 +49,37 @@ interface TrailSegment {
     color: string;
 }
 
+interface PulseWave {
+    id: string;
+    cx: number;
+    cy: number;
+    color: string;
+    delay: number;
+}
+
+interface Position {
+    row: number;
+    col: number;
+}
+
+interface Particle {
+    id: number;
+    dx: number;
+    dy: number;
+    size: number;
+    duration: number;
+    delay: number;
+}
+
 export default function ReactiveGrid() {
     const gridRef = useRef<HTMLDivElement | null>(null);
     const lastActivateRef = useRef(0);
     const trailCentersRef = useRef<{ x: number; y: number }[]>([]);
-    const [isTouchLayout, setIsTouchLayout] = useState(false);
+    const pendingIndexRef = useRef<number | null>(null);
+    const fpsLogRef = useRef({ lastTime: performance.now(), frames: 0, lastLog: performance.now() });
+
+    const [reducedMotion, setReducedMotion] = useState(false);
+    const [isPhoneLayout, setIsPhoneLayout] = useState(false);
     const [columnCount, setColumnCount] = useState(DEFAULT_COLUMNS);
     const [state, setState] = useState<GridState>({
         mode: "ripple",
@@ -66,21 +89,38 @@ export default function ReactiveGrid() {
 
     const handleActivate = useCallback((index: number, overrideMode?: AnimationMode) => {
         const now = performance.now();
-        if (now - lastActivateRef.current < 120) return; // throttle rapid spam
+        if (now - lastActivateRef.current < 120) return;
+
         lastActivateRef.current = now;
 
-        const mode: AnimationMode = overrideMode
-            ? overrideMode
-            : MAGNET_TILES.has(index + 1)
-                ? "magnet"
-                : MODES[index % MODES.length];
-        setState({mode, originIndex: index, timestamp: Date.now()});
+        const mode: AnimationMode =
+            overrideMode ??
+            (MAGNET_TILES.has(index + 1) ? "magnet" : MODES[index % MODES.length]);
+
+        setState({ mode, originIndex: index, timestamp: Date.now() });
     }, []);
 
-    const positions = useMemo(
-        () => GRID_ITEMS.map((_, index) => indexToPosition(index, columnCount)),
-        [columnCount]
+    const activateSmooth = useCallback(
+        (index: number, overrideMode?: AnimationMode) => {
+            pendingIndexRef.current = index;
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const i = pendingIndexRef.current;
+                        if (i != null) {
+                            handleActivate(i, overrideMode);
+                            pendingIndexRef.current = null;
+                        }
+                    });
+                });
+            }, 0);
+        },
+        [handleActivate]
     );
+
+    const seed = useMemo(() => Math.floor(Math.random() * 1_000_000), []);
+    const precomputed = usePrecomputedGrid(seed, columnCount);
+    const positions = precomputed.layout;
 
     useEffect(() => {
         const node = gridRef.current;
@@ -91,11 +131,15 @@ export default function ReactiveGrid() {
             if (ticking) return;
             ticking = true;
             requestAnimationFrame(() => {
-            const styles = window.getComputedStyle(node);
-            const template = styles.getPropertyValue("grid-template-columns");
+                const styles = window.getComputedStyle(node);
+                const template = styles.getPropertyValue("grid-template-columns");
                 const count = template.split(" ").filter(Boolean).length;
                 const nextCount = count > 0 ? count : DEFAULT_COLUMNS;
+
                 setColumnCount((prev) => (prev === nextCount ? prev : nextCount));
+                // invalidate cached trail centers on layout change
+                trailCentersRef.current = [];
+
                 ticking = false;
             });
         };
@@ -103,82 +147,132 @@ export default function ReactiveGrid() {
         computeColumns();
         const observer = new ResizeObserver(computeColumns);
         observer.observe(node);
+
         return () => observer.disconnect();
     }, []);
 
     useEffect(() => {
-        // Preload number assets to avoid first-click jank
-        GRID_ITEMS.forEach((num) => {
+        precomputed.tiles.forEach((num) => {
             const img = new Image();
             img.src = `/nums/${num}.svg`;
         });
+    }, [precomputed.tiles]);
+
+    useEffect(() => {
+        const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const update = () => setReducedMotion(mq.matches);
+        update();
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
     }, []);
 
     useEffect(() => {
-        const update = () => setIsTouchLayout(window.innerWidth < 640);
+        const update = () => {
+            const phone = window.matchMedia("(max-width: 640px)").matches;
+            setIsPhoneLayout(phone);
+        };
         update();
         window.addEventListener("resize", update);
         return () => window.removeEventListener("resize", update);
     }, []);
 
-    const originPosition = positions[state.originIndex] ?? {row: 0, col: 0};
+    useEffect(() => {
+        if (!reducedMotion) return;
+
+        const stop = throttledRAF((now) => {
+            // FPS logging only
+            fpsLogRef.current.frames += 1;
+            if (now - fpsLogRef.current.lastLog >= 1000) {
+                const fps =
+                    (fpsLogRef.current.frames * 1000) /
+                    (now - fpsLogRef.current.lastLog);
+                console.log(`[ReactiveGrid] FPS: ${fps.toFixed(1)}`);
+                fpsLogRef.current.frames = 0;
+                fpsLogRef.current.lastLog = now;
+            }
+        }, 30);
+
+        return () => stop();
+    }, [reducedMotion]);
+
+    const originPosition = positions[state.originIndex] ?? { row: 0, col: 0 };
 
     const metrics = useMemo<TileMetrics[]>(
         () =>
-            positions.map((position) => {
-                const distanceFromOrigin = Math.hypot(
+            positions.map((position, idx) => {
+                const delay =
+                    precomputed.delayMap[idx] ??
+                    calculateDelay(position, originPosition, state.mode);
+                const distanceFromOrigin = precomputed.distanceMap[idx] ?? Math.hypot(
                     position.row - originPosition.row,
                     position.col - originPosition.col
                 );
-            return {
-                position,
-                originPosition,
-                distanceFromOrigin,
-                delay: calculateDelay(position, originPosition, state.mode),
-            };
-        }),
-        [positions, originPosition, state.mode]
+                return {
+                    position,
+                    originPosition,
+                    distanceFromOrigin,
+                    delay,
+                    theme: precomputed.themes[idx % precomputed.themes.length],
+                    variation: precomputed.variations[idx],
+                };
+            }),
+        [
+            positions,
+            originPosition,
+            state.mode,
+            precomputed.delayMap,
+            precomputed.distanceMap,
+            precomputed.themes,
+            precomputed.variations,
+        ]
     );
 
     const [trails, setTrails] = useState<TrailSegment[]>([]);
+    const [pulses, setPulses] = useState<PulseWave[]>([]);
 
-    const addTrails = useCallback(
-        (activation: GridState) => {
-            if (!gridRef.current) return;
-            const buttons = Array.from(gridRef.current.querySelectorAll("button"));
-            if (!buttons.length) return;
+    const addTrails = useCallback((activation: GridState) => {
+        if (!gridRef.current) return;
 
-            if (!trailCentersRef.current.length) {
-                const parentRect = gridRef.current.getBoundingClientRect();
-                trailCentersRef.current = buttons.map((btn) => {
-                    const rect = btn.getBoundingClientRect();
-                    return {
-                        x: rect.left - parentRect.left + rect.width / 2,
-                        y: rect.top - parentRect.top + rect.height / 2,
-                    };
-                });
-            }
+        const buttons = Array.from(gridRef.current.querySelectorAll("button"));
+        if (!buttons.length) return;
 
-            const centers = trailCentersRef.current;
+        if (!trailCentersRef.current.length) {
+            const parentRect = gridRef.current.getBoundingClientRect();
+            trailCentersRef.current = buttons.map((btn) => {
+                const rect = btn.getBoundingClientRect();
+                return {
+                    x: rect.left - parentRect.left + rect.width / 2,
+                    y: rect.top - parentRect.top + rect.height / 2,
+                };
+            });
+        }
 
-            const originCenter = centers[activation.originIndex];
-            if (!originCenter) return;
+        const centers = trailCentersRef.current;
+        const originCenter = centers[activation.originIndex];
+        if (!originCenter) return;
 
-            const modeColor = trailColorForMode(activation.mode);
-            const newSegments = centers.slice(0, 10).map((center, idx) => ({
-                id: `${activation.timestamp}-${idx}`,
-                x1: originCenter.x,
-                y1: originCenter.y,
-                x2: center.x,
-                y2: center.y,
-                color: modeColor,
-            }));
+        const modeColor = trailColorForMode(activation.mode);
+        const newSegments = centers.slice(0, 10).map((center, idx) => ({
+            id: `${activation.timestamp}-${idx}`,
+            x1: originCenter.x,
+            y1: originCenter.y,
+            x2: center.x,
+            y2: center.y,
+            color: modeColor,
+        }));
 
-            setTrails(newSegments);
-            setTimeout(() => setTrails([]), 700);
-        },
-        []
-    );
+        setTrails(newSegments);
+        setTimeout(() => setTrails([]), 700);
+        const waves = centers.slice(0, precomputed.distanceMap.length).map((center, idx) => ({
+            id: `${activation.timestamp}-pulse-${idx}`,
+            cx: center.x,
+            cy: center.y,
+            color: modeColor,
+            delay: (precomputed.distanceMap[idx] ?? 0) * 0.08,
+        }));
+        setPulses(waves);
+        setTimeout(() => setPulses([]), 700);
+    }, [precomputed.distanceMap]);
 
     return (
         <motion.div
@@ -195,45 +289,61 @@ export default function ReactiveGrid() {
           grid-cols-[repeat(3,75px)]
           auto-rows-[75px]
           gap-4
-          sm:grid-cols-[repeat(4,100px)]
-          sm:auto-rows-[100px]
-          md:grid-cols-[repeat(4,115px)]
-          md:auto-rows-[115px]
-          md:gap-[30px]
+          sm:grid-cols-[repeat(3,95px)]
+          sm:auto-rows-[95px]
+          md:grid-cols-[repeat(3,110px)]
+          md:auto-rows-[110px]
+          md:gap-[28px]
           mx-auto
         "
                 style={{ position: "relative" }}
             >
-                {GRID_ITEMS.map((num, index) => (
+                {precomputed.tiles.map((num, index) => (
                     <ReactiveTile
                         key={num}
                         index={index}
                         metrics={metrics[index]}
-                        theme={TILE_THEMES[index % TILE_THEMES.length]}
                         label={num}
-                activation={state}
-                onActivate={handleActivate}
-                isTouchLayout={isTouchLayout}
-                onTrail={addTrails}
-            />
-        ))}
-            <svg className="pointer-events-none absolute inset-0 h-full w-full">
-                {trails.map((line) => (
-                    <motion.line
-                        key={line.id}
-                        x1={line.x1}
-                        y1={line.y1}
-                        x2={line.x2}
-                        y2={line.y2}
-                        stroke={line.color}
-                        strokeWidth={1.8}
-                        strokeLinecap="round"
-                        initial={{ opacity: 0.7, pathLength: 0 }}
-                        animate={{ opacity: 0, pathLength: 1 }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        activation={state}
+                        onActivate={activateSmooth}
+                        onTrail={addTrails}
+                        reducedMotion={reducedMotion}
+                        isPhoneLayout={isPhoneLayout}
                     />
                 ))}
-            </svg>
+                <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                    {!reducedMotion &&
+                        trails.map((line) => (
+                            <motion.line
+                                key={line.id}
+                                x1={line.x1}
+                                y1={line.y1}
+                                x2={line.x2}
+                                y2={line.y2}
+                                stroke={line.color}
+                                strokeWidth={1.8}
+                                strokeLinecap="round"
+                                initial={{ opacity: 0.7, pathLength: 0 }}
+                                animate={{ opacity: 0, pathLength: 1 }}
+                                transition={{ duration: 0.6, ease: "easeOut" }}
+                            />
+                        ))}
+                    {!reducedMotion &&
+                        pulses.map((pulse) => (
+                            <motion.circle
+                                key={pulse.id}
+                                cx={pulse.cx}
+                                cy={pulse.cy}
+                                r={0}
+                                fill="none"
+                                stroke={pulse.color}
+                                strokeWidth={1.2}
+                                initial={{ opacity: 0.45, r: 0 }}
+                                animate={{ opacity: 0, r: 26 }}
+                                transition={{ duration: 0.65, ease: "easeOut", delay: pulse.delay }}
+                            />
+                        ))}
+                </svg>
             </div>
         </motion.div>
     );
@@ -243,123 +353,131 @@ interface ReactiveTileProps {
     index: number;
     label: number;
     metrics: TileMetrics;
-    theme: (typeof TILE_THEMES)[number];
     activation: GridState;
     onActivate: (index: number, overrideMode?: AnimationMode) => void;
-    isTouchLayout: boolean;
     onTrail: (activation: GridState) => void;
+    reducedMotion: boolean;
+    isPhoneLayout: boolean;
 }
 
-function ReactiveTile({index, label, metrics, theme, activation, onActivate, isTouchLayout, onTrail}: ReactiveTileProps) {
-    const {position, originPosition, delay, distanceFromOrigin} = metrics;
+function ReactiveTile({
+                          index,
+                          label,
+                          metrics,
+                          activation,
+                          onActivate,
+                          onTrail,
+                          reducedMotion,
+                          isPhoneLayout,
+                      }: ReactiveTileProps) {
+    const { theme, delay, distanceFromOrigin, variation, position, originPosition } = metrics;
 
-    const scale = useMotionValue<number>(1);
-    const rotate = useMotionValue<number>(0);
-    const background = theme.base;
-
-    const pullX = useMotionValue<number>(0);
-    const y = useMotionValue<number>(0);
-    const contentScale = useTransform(scale, (s) => 1 / s);
-    const contentRotate = useTransform(rotate, (r) => -r);
-    const svgOpacity = useMotionValue<number>(1);
-    const [particles, setParticles] = useState<Particle[]>([]);
     const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdTriggeredRef = useRef(false);
     const clickHandledRef = useRef(false);
 
-    const playAnimation = useCallback(() => {
+    const tileX: MotionValue<number> = useMotionValue(0);
+    const tileY: MotionValue<number> = useMotionValue(0);
+    const svgScale: MotionValue<number> = useMotionValue(1);
+    const svgRotate: MotionValue<number> = useMotionValue(0);
+    const svgOpacity: MotionValue<number> = useMotionValue(1);
+
+    const particles = useMemo(
+        () =>
+            activation.originIndex === index && !reducedMotion
+                ? generateParticles(activation.timestamp)
+                : [],
+        [activation.originIndex, activation.timestamp, index, reducedMotion]
+    );
+
+    useEffect(() => {
+        if (reducedMotion) {
+            tileX.set(0);
+            tileY.set(0);
+            svgScale.set(1);
+            svgRotate.set(0);
+            svgOpacity.set(1);
+            return;
+        }
+
+        const isOrigin = activation.originIndex === index;
         const isMagnet = activation.mode === "magnet";
-
-        // Vercel-style motion profiles
-        const SPRING_SCALE = {
-            type: "spring" as const,
-            stiffness: 800,
-            damping: 40,
-            mass: 0.8,
-        };
-
-        const SPRING_ROTATE = {
-            type: "spring" as const,
-            stiffness: 520,
-            damping: 36,
-            mass: 0.7,
-        };
-
-        const SPRING_PULL = {
-            type: "spring" as const,
-            stiffness: 620,
-            damping: 40,
-            mass: 0.75,
-        };
-
-        const SPRING_LIFT = {
-            type: "spring" as const,
-            stiffness: 820,
-            damping: 40,
-            mass: 0.75,
-        };
-
-        // Target values (same logic you already have)
-        const targetScale = modeScale(activation.mode);
-        const targetRotation = modeRotation(activation.mode, position, originPosition);
+        const distanceFactor = Math.max(0.2, 1 - distanceFromOrigin * 0.2);
+        const magnetBoost = isMagnet ? 1.1 : 1;
+        const liftTarget =
+            ((isOrigin ? -16 : -10 * distanceFactor) * magnetBoost) + variation.liftJitter;
+        const rotateTarget =
+            ((isOrigin ? 14 : 9 * distanceFactor) + variation.rotateJitter) *
+            (isMagnet ? 0.8 : 1) *
+            (index % 2 === 0 ? 1 : -1);
+        const scaleTarget =
+            ((isOrigin ? 1.35 : 1.1 + 0.2 * distanceFactor) * magnetBoost) *
+            variation.scaleJitter;
+        const opacityTarget = Math.min(1, variation.svgOpacity);
 
         const deltaRow = originPosition.row - position.row;
         const deltaCol = originPosition.col - position.col;
         const norm = Math.max(Math.hypot(deltaRow, deltaCol), 0.0001);
-        const pullStrength = isMagnet ? (isTouchLayout ? 12 : 18) : 0;
-
+        const pullStrength = isMagnet ? 10 : 0;
         const targetX = (deltaCol / norm) * pullStrength;
-        const targetY = (deltaRow / norm) * pullStrength;
+        const targetYOffset = (deltaRow / norm) * pullStrength * 0.5;
 
-        // --- Vercel-style animations ---
+        const tileSpring: ValueAnimationTransition<number> = {
+            type: "spring",
+            stiffness: 460,
+            damping: 36,
+            mass: 0.85,
+        };
+        const svgSpring: ValueAnimationTransition<number> = {
+            type: "spring",
+            stiffness: 620,
+            damping: 40,
+            mass: 0.8,
+        };
 
-        // Clean scale and return to rest (velocity-aware)
-        void continueSpring(scale, [scale.get(), targetScale, 1], SPRING_SCALE, delay);
-
-        // Sharp rotational micro-tilt and return
-        void continueSpring(rotate, [rotate.get(), targetRotation, 0], SPRING_ROTATE, delay);
-
-        // Subtle magnet pull
-        void continueSpring(pullX, [pullX.get(), targetX, 0], SPRING_PULL, delay);
-
-        // Clean vertical lift with slightly softer return
-        void continueSpring(y, [y.get(), -16 + targetY, 0], SPRING_LIFT, delay);
-
-        // Subtle SVG pulse only on your special index
-        if (activation.originIndex === 3) {
-            const pulseDelay = distanceFromOrigin * 0.05;
-            void continueSpring(svgOpacity, [svgOpacity.get(), 0.35, 1], {
-                delay: pulseDelay,
-                type: "spring",
-                stiffness: 700,
-                damping: 48,
-                mass: 0.7,
-            });
-        } else {
-            svgOpacity.set(1);
+        if (isPhoneLayout) {
+            tileX.set(targetX);
+            tileY.set(liftTarget + targetYOffset);
+            svgScale.set(scaleTarget);
+            svgRotate.set(rotateTarget);
+            svgOpacity.set(opacityTarget);
+            return;
         }
+
+        void continueSpring(tileX, [tileX.get(), targetX, 0], tileSpring, delay);
+        void continueSpring(tileY, [tileY.get(), liftTarget, 0], tileSpring, delay);
+        void continueSpring(tileY, [tileY.get(), liftTarget + targetYOffset, 0], tileSpring, delay);
+        void continueSpring(svgScale, [svgScale.get(), scaleTarget, 1], svgSpring, delay);
+        void continueSpring(svgRotate, [svgRotate.get(), rotateTarget, 0], svgSpring, delay + 0.04);
+        void continueSpring(
+            svgOpacity,
+            [svgOpacity.get(), opacityTarget, 1],
+            { ...svgSpring, stiffness: 540 },
+            delay + 0.02
+        );
     }, [
-        activation.mode,
         activation.originIndex,
-        position,
-        originPosition,
-        scale,
-        rotate,
-        pullX,
-        y,
-        svgOpacity,
+        activation.timestamp,
+        activation.mode,
+        index,
         delay,
         distanceFromOrigin,
-        isTouchLayout
+        reducedMotion,
+        position.col,
+        position.row,
+        originPosition.col,
+        originPosition.row,
+        tileX,
+        tileY,
+        svgScale,
+        svgRotate,
+        svgOpacity,
+        variation.liftJitter,
+        variation.rotateJitter,
+        variation.scaleJitter,
+        variation.svgOpacity,
+        isPhoneLayout,
     ]);
-
-    useEffect(() => {
-        if (activation.originIndex === index) {
-            setParticles(generateParticles(activation.timestamp));
-        } else if (particles.length) {
-            setParticles([]);
-        }
-    }, [activation.originIndex, activation.timestamp, index, particles.length]);
 
     const clearHold = useCallback(() => {
         if (holdTimeoutRef.current) {
@@ -371,6 +489,7 @@ function ReactiveTile({index, label, metrics, theme, activation, onActivate, isT
     const handlePointerDown = useCallback(() => {
         holdTriggeredRef.current = false;
         clearHold();
+
         holdTimeoutRef.current = setTimeout(() => {
             holdTriggeredRef.current = true;
             onActivate(index, "magnet");
@@ -411,8 +530,6 @@ function ReactiveTile({index, label, metrics, theme, activation, onActivate, isT
 
     useEffect(() => () => clearHold(), [clearHold]);
 
-    useAnimatedTrigger(activation.timestamp, playAnimation);
-
     return (
         <motion.button
             type="button"
@@ -421,21 +538,25 @@ function ReactiveTile({index, label, metrics, theme, activation, onActivate, isT
             onPointerUp={handlePointerUp}
             onPointerLeave={clearHold}
             onContextMenu={(event) => event.preventDefault()}
-            style={{
-                rotate,
-                scale,
-                x: pullX,
-                y,
-                backgroundImage: background,
-                color: theme.text,
-                borderColor: theme.border,
-            }}
-            className="
-                    relative overflow-hidden flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
-                    md:size-[115px]
-                    focus-visible:outline focus-visible:outline-tropical-indigo cursor-pointer
-                  "
-            whileTap={{scale: 0.95}}
+            animate={
+                isPhoneLayout && !reducedMotion
+                    ? { x: tileX.get(), y: tileY.get() }
+                    : undefined
+            }
+            transition={
+                isPhoneLayout && !reducedMotion
+                    ? { type: "spring", stiffness: 520, damping: 38, delay }
+                    : undefined
+            }
+            style={!isPhoneLayout ? { y: tileY, x: tileX } : undefined}
+            className={`
+                relative overflow-hidden flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
+                md:size-[115px]
+                focus-visible:outline focus-visible:outline-tropical-indigo cursor-pointer
+                ${theme.className}
+            `}
+            whileHover={!reducedMotion ? { scale: 1.02 } : undefined}
+            whileTap={{ scale: 0.96 }}
         >
             <div className="pointer-events-none absolute inset-0">
                 {particles.map((particle) => (
@@ -452,40 +573,55 @@ function ReactiveTile({index, label, metrics, theme, activation, onActivate, isT
                             backgroundColor: `rgba(${theme.glow}, 0.38)`,
                         }}
                         initial={{ opacity: 0.9, scale: 1, x: 0, y: 0 }}
-                        animate={{ opacity: 0, scale: 0.6, x: particle.dx, y: particle.dy }}
-                        transition={{ duration: particle.duration, delay: particle.delay, ease: "easeOut" }}
+                        animate={{
+                            opacity: 0,
+                            scale: 0.8,
+                            x: particle.dx,
+                            y: particle.dy,
+                        }}
+                        transition={{
+                            duration: particle.duration,
+                            delay: particle.delay,
+                            ease: "easeOut",
+                        }}
                     />
                 ))}
             </div>
             <motion.div
                 className="relative h-7 w-8 overflow-hidden sm:h-8 sm:w-9 md:h-10 md:w-12"
-                style={{scale: contentScale, rotate: contentRotate, opacity: svgOpacity}}
+                animate={
+                    isPhoneLayout && !reducedMotion
+                        ? {
+                            scale: svgScale.get(),
+                            rotate: svgRotate.get(),
+                            opacity: svgOpacity.get(),
+                        }
+                        : undefined
+                }
+                transition={
+                    isPhoneLayout && !reducedMotion
+                        ? { type: "spring", stiffness: 620, damping: 40, delay: delay + 0.04 }
+                        : undefined
+                }
+                style={
+                    !isPhoneLayout
+                        ? {
+                            scale: svgScale,
+                            rotate: svgRotate,
+                            opacity: svgOpacity,
+                            filter: reducedMotion ? undefined : `brightness(${variation.brightness})`,
+                        }
+                        : { filter: reducedMotion ? undefined : `brightness(${variation.brightness})` }
+                }
             >
-                <img className="object-contain h-full w-full" src={`/nums/${label}.svg`} alt={String(label)} />
+                <img
+                    className="object-contain h-full w-full"
+                    src={`/nums/${label}.svg`}
+                    alt={String(label)}
+                />
             </motion.div>
         </motion.button>
     );
-}
-
-function useAnimatedTrigger(timestamp: number, callback: () => void) {
-    const prevTimestamp = useRef(timestamp);
-    useEffect(() => {
-        if (timestamp === prevTimestamp.current) return;
-        prevTimestamp.current = timestamp;
-        callback();
-    }, [timestamp, callback]);
-}
-
-interface Position {
-    row: number;
-    col: number;
-}
-
-function indexToPosition(index: number, columns: number): Position {
-    return {
-        row: Math.floor(index / columns),
-        col: index % columns,
-    };
 }
 
 function calculateDelay(position: Position, origin: Position, mode: AnimationMode) {
@@ -494,7 +630,10 @@ function calculateDelay(position: Position, origin: Position, mode: AnimationMod
         case "ripple":
             return distance * 0.08;
         case "swirl":
-            return (Math.atan2(position.row - origin.row, position.col - origin.col) + Math.PI) * 0.03;
+            return (
+                (Math.atan2(position.row - origin.row, position.col - origin.col) + Math.PI) *
+                0.03
+            );
         case "stream":
             return position.col * 0.05;
         case "burst":
@@ -523,23 +662,6 @@ function modeScale(mode: AnimationMode) {
     }
 }
 
-function modeRotation(mode: AnimationMode, position: Position, origin: Position) {
-    switch (mode) {
-        case "ripple":
-            return 0;
-        case "swirl":
-            return 6 * Math.sign(position.col - origin.col || 1);
-        case "stream":
-            return (position.row - origin.row) * 2;
-        case "burst":
-            return 8 * Math.sign(position.col - origin.col || 1);
-        case "magnet":
-            return 0;
-        default:
-            return 0;
-    }
-}
-
 function trailColorForMode(mode: AnimationMode) {
     switch (mode) {
         case "ripple":
@@ -557,21 +679,14 @@ function trailColorForMode(mode: AnimationMode) {
     }
 }
 
-interface Particle {
-    id: number;
-    dx: number;
-    dy: number;
-    size: number;
-    duration: number;
-    delay: number;
-}
-
 function generateParticles(seedSource: number, count = 10): Particle[] {
     const rng = mulberry32(seedSource | 0);
     const particles: Particle[] = [];
+
     for (let i = 0; i < count; i++) {
         const angle = rng() * Math.PI * 2;
-        const radius = 10 + rng() * 26; // spread
+        const radius = 10 + rng() * 26;
+
         particles.push({
             id: seedSource + i,
             dx: Math.cos(angle) * radius,
@@ -581,6 +696,7 @@ function generateParticles(seedSource: number, count = 10): Particle[] {
             delay: rng() * 0.08,
         });
     }
+
     return particles;
 }
 
@@ -595,7 +711,7 @@ function mulberry32(a: number) {
 }
 
 async function continueSpring(
-    value: ReturnType<typeof useMotionValue<number>>,
+    value: MotionValue<number>,
     frames: number[],
     springConfig: ValueAnimationTransition<number>,
     delay = 0
@@ -604,11 +720,28 @@ async function continueSpring(
         const target = frames[i + 1];
         const velocity = value.getVelocity();
 
-        await animate<number>(value, target, {
+        await animate(value, target, {
             ...springConfig,
-            delay: i === 0 ? delay : 0,
             velocity,
-            restSpeed: 0.001,
+            delay: i === 0 ? delay : 0,
+            restSpeed: 0.003,
         }).finished;
     }
+}
+
+function throttledRAF(callback: FrameRequestCallback, fps = 30) {
+    const frameDuration = 1000 / fps;
+    let last = 0;
+    let rafId = 0;
+
+    const loop = (now: number) => {
+        if (now - last >= frameDuration) {
+            last = now;
+            callback(now);
+        }
+        rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
 }
