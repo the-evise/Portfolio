@@ -436,25 +436,40 @@ function ReactiveTile({
         };
 
         if (isPhoneLayout) {
-            tileX.set(targetX);
-            tileY.set(liftTarget + targetYOffset);
-            svgScale.set(scaleTarget);
-            svgRotate.set(rotateTarget);
-            svgOpacity.set(opacityTarget);
-            return;
-        }
+            const animatePhase = (toBase: boolean) =>
+                Promise.all([
+                    animate(tileX, toBase ? 0 : targetX, { ...tileSpring, delay }).finished,
+                    animate(tileY, toBase ? 0 : liftTarget + targetYOffset, { ...tileSpring, delay }).finished,
+                    animate(svgScale, toBase ? 1 : scaleTarget, { ...svgSpring, delay }).finished,
+                    animate(svgRotate, toBase ? 0 : rotateTarget, { ...svgSpring, delay: delay + 0.04 }).finished,
+                    animate(
+                        svgOpacity,
+                        toBase ? 1 : opacityTarget,
+                        {
+                            ...svgSpring,
+                            stiffness: 540,
+                            delay: delay + 0.02,
+                        }
+                    ).finished,
+                ]);
 
-        void continueSpring(tileX, [tileX.get(), targetX, 0], tileSpring, delay);
-        void continueSpring(tileY, [tileY.get(), liftTarget, 0], tileSpring, delay);
-        void continueSpring(tileY, [tileY.get(), liftTarget + targetYOffset, 0], tileSpring, delay);
-        void continueSpring(svgScale, [svgScale.get(), scaleTarget, 1], svgSpring, delay);
-        void continueSpring(svgRotate, [svgRotate.get(), rotateTarget, 0], svgSpring, delay + 0.04);
-        void continueSpring(
-            svgOpacity,
-            [svgOpacity.get(), opacityTarget, 1],
-            { ...svgSpring, stiffness: 540 },
-            delay + 0.02
-        );
+            void (async () => {
+                await animatePhase(false);
+                await animatePhase(true);
+            })();
+        } else {
+            void continueSpring(tileX, [tileX.get(), targetX, 0], tileSpring, delay);
+            void continueSpring(tileY, [tileY.get(), liftTarget, 0], tileSpring, delay);
+            void continueSpring(tileY, [tileY.get(), liftTarget + targetYOffset, 0], tileSpring, delay);
+            void continueSpring(svgScale, [svgScale.get(), scaleTarget, 1], svgSpring, delay);
+            void continueSpring(svgRotate, [svgRotate.get(), rotateTarget, 0], svgSpring, delay + 0.04);
+            void continueSpring(
+                svgOpacity,
+                [svgOpacity.get(), opacityTarget, 1],
+                { ...svgSpring, stiffness: 540 },
+                delay + 0.02
+            );
+        }
     }, [
         activation.originIndex,
         activation.timestamp,
@@ -538,17 +553,7 @@ function ReactiveTile({
             onPointerUp={handlePointerUp}
             onPointerLeave={clearHold}
             onContextMenu={(event) => event.preventDefault()}
-            animate={
-                isPhoneLayout && !reducedMotion
-                    ? { x: tileX.get(), y: tileY.get() }
-                    : undefined
-            }
-            transition={
-                isPhoneLayout && !reducedMotion
-                    ? { type: "spring", stiffness: 520, damping: 38, delay }
-                    : undefined
-            }
-            style={!isPhoneLayout ? { y: tileY, x: tileX } : undefined}
+            style={{ y: tileY, x: tileX }}
             className={`
                 relative overflow-hidden flex size-[75px] sm:size-[100px] items-center justify-center rounded-xl border text-2xl font-semibold transition
                 md:size-[115px]
@@ -589,30 +594,12 @@ function ReactiveTile({
             </div>
             <motion.div
                 className="relative h-7 w-8 overflow-hidden sm:h-8 sm:w-9 md:h-10 md:w-12"
-                animate={
-                    isPhoneLayout && !reducedMotion
-                        ? {
-                            scale: svgScale.get(),
-                            rotate: svgRotate.get(),
-                            opacity: svgOpacity.get(),
-                        }
-                        : undefined
-                }
-                transition={
-                    isPhoneLayout && !reducedMotion
-                        ? { type: "spring", stiffness: 620, damping: 40, delay: delay + 0.04 }
-                        : undefined
-                }
-                style={
-                    !isPhoneLayout
-                        ? {
-                            scale: svgScale,
-                            rotate: svgRotate,
-                            opacity: svgOpacity,
-                            filter: reducedMotion ? undefined : `brightness(${variation.brightness})`,
-                        }
-                        : { filter: reducedMotion ? undefined : `brightness(${variation.brightness})` }
-                }
+                style={{
+                    scale: svgScale,
+                    rotate: svgRotate,
+                    opacity: svgOpacity,
+                    filter: reducedMotion ? undefined : `brightness(${variation.brightness})`,
+                }}
             >
                 <img
                     className="object-contain h-full w-full"
