@@ -10,11 +10,13 @@ import { TypingTracker } from "@/features/experiments/typingTracker/components/T
 import ExperimentPanel from "@/components/ExperimentPanel";
 import Headline from "@/components/Headline";
 import WorkProcess from "@/components/WorkProcess";
+import Board from "@/features/experiments/moodBoard/components/Board";
 
 const EXPERIMENTS = [
     { label: "Type Tracker", Component: TypingTracker },
     { label: "Motion Visualizer", Component: MotionVisualizer },
     { label: "Reactive Grid", Component: ReactiveGrid },
+    { label: "Mood Board", Component: Board },
 ] as const;
 
 const experimentLabels = EXPERIMENTS.map((exp) => exp.label);

@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode} from "react";
 import {cn} from "@/utils/utils";
-import {HiPresentationChartLine, HiTerminal, HiViewGrid} from "react-icons/hi";
+import {HiPresentationChartLine, HiTerminal, HiViewBoards, HiViewGrid} from "react-icons/hi";
 import {LayoutGroup, motion, useAnimationControls, useInView} from "motion/react";
 import {animate} from "motion";
 
@@ -9,6 +9,7 @@ const iconMap: Record<string, ReactNode> = {
     "Type Tracker": <HiTerminal/>,
     "Motion Visualizer": <HiPresentationChartLine/>,
     "Reactive Grid": <HiViewGrid/>,
+    "Mood Board": <HiViewBoards/>
 };
 
 export interface ExperimentTabProps {

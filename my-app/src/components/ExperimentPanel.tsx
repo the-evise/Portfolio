@@ -6,7 +6,7 @@ import ExperimentIndicator from "@/components/ExperimentsIndicator";
 import { useFullScreenScroller } from "@/components/FullScreenScroller";
 import DragGuideModal from "@/components/DragGuideModal";
 
-const DEFAULT_EXPERIMENTS = ["Type Tracker", "Motion Visualizer", "Reactive Grid"];
+const DEFAULT_EXPERIMENTS = ["Type Tracker", "Motion Visualizer", "Reactive Grid", "Mood Board"];
 const SWIPE_THRESHOLD = 30;
 const MAX_DRAG_PULL = 48;
 const DRAG_INFLUENCE = 0.35;

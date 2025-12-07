@@ -170,7 +170,7 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
                 {/* 2) Sliders */}
                 {/* ──────────────────────────────── */}
 
-                <div className="flex flex-col gap-4 md:gap-10 bg-white/10 p-2 rounded-2xl">
+                <div className="flex flex-col gap-2 md:gap-6 bg-white/10 p-2 rounded-2xl">
                     <MotionSlider
                         label="Smoothness"
                         value={smoothness}
