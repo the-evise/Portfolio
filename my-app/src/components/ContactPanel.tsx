@@ -16,7 +16,7 @@ interface SocialLink {
 const SOCIAL_LINKS: SocialLink[] = [
     {
         name: "Email",
-        username: "evise.apply@gmail.com",
+        username: "evise.apply",
         url: "mailto:evise.apply@gmail.com",
         icon: <AiOutlineGoogle />,
     },
