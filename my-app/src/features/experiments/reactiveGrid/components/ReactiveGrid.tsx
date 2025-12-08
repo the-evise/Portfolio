@@ -2,14 +2,24 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { animate } from "motion";
 import { motion, useMotionValue } from "motion/react";
-import type { MotionValue, ValueAnimationTransition } from "motion";
+import type { AnimationPlaybackControls, MotionValue, ValueAnimationTransition } from "motion";
 import { usePrecomputedGrid } from "@/features/experiments/reactiveGrid/hooks/usePrecomputedGrid";
+import { continueSpring } from "@/utils/utils";
 
 const MODES = ["ripple", "swirl", "stream", "burst"] as const;
 
 const MAGNET_TILES = new Set([5, 6]);
 const DEFAULT_COLUMNS = 3;
 const LONG_PRESS_MS = 520;
+const INITIAL_TIMESTAMP = Date.now();
+const INITIAL_SEED = (() => {
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        return array[0] % 1_000_000;
+    }
+    return Math.floor(Math.random() * 1_000_000);
+})();
 
 type AnimationMode = (typeof MODES)[number] | "magnet";
 
@@ -76,7 +86,7 @@ export default function ReactiveGrid() {
     const lastActivateRef = useRef(0);
     const trailCentersRef = useRef<{ x: number; y: number }[]>([]);
     const pendingIndexRef = useRef<number | null>(null);
-    const fpsLogRef = useRef({ lastTime: performance.now(), frames: 0, lastLog: performance.now() });
+    const fpsLogRef = useRef({ lastTime: 0, frames: 0, lastLog: 0 });
 
     const [reducedMotion, setReducedMotion] = useState(false);
     const [isPhoneLayout, setIsPhoneLayout] = useState(false);
@@ -84,7 +94,7 @@ export default function ReactiveGrid() {
     const [state, setState] = useState<GridState>({
         mode: "ripple",
         originIndex: 0,
-        timestamp: Date.now(),
+        timestamp: INITIAL_TIMESTAMP,
     });
 
     const handleActivate = useCallback((index: number, overrideMode?: AnimationMode) => {
@@ -118,7 +128,7 @@ export default function ReactiveGrid() {
         [handleActivate]
     );
 
-    const seed = useMemo(() => Math.floor(Math.random() * 1_000_000), []);
+    const seed = useMemo(() => INITIAL_SEED, []);
     const precomputed = usePrecomputedGrid(seed, columnCount);
     const positions = precomputed.layout;
 
@@ -177,6 +187,11 @@ export default function ReactiveGrid() {
     }, []);
 
     useEffect(() => {
+        if (typeof performance !== "undefined") {
+            const now = performance.now();
+            fpsLogRef.current = { lastTime: now, frames: 0, lastLog: now };
+        }
+
         if (!reducedMotion) return;
 
         const stop = throttledRAF((now) => {
@@ -435,21 +450,29 @@ function ReactiveTile({
             mass: 0.8,
         };
 
+        const controls: AnimationPlaybackControls[] = [];
+        const track = (control: AnimationPlaybackControls) => {
+            controls.push(control);
+            return control;
+        };
+
         if (isPhoneLayout) {
             const animatePhase = (toBase: boolean) =>
                 Promise.all([
-                    animate(tileX, toBase ? 0 : targetX, { ...tileSpring, delay }).finished,
-                    animate(tileY, toBase ? 0 : liftTarget + targetYOffset, { ...tileSpring, delay }).finished,
-                    animate(svgScale, toBase ? 1 : scaleTarget, { ...svgSpring, delay }).finished,
-                    animate(svgRotate, toBase ? 0 : rotateTarget, { ...svgSpring, delay: delay + 0.04 }).finished,
-                    animate(
-                        svgOpacity,
-                        toBase ? 1 : opacityTarget,
-                        {
-                            ...svgSpring,
-                            stiffness: 540,
-                            delay: delay + 0.02,
-                        }
+                    track(animate(tileX, toBase ? 0 : targetX, { ...tileSpring, delay })).finished,
+                    track(animate(tileY, toBase ? 0 : liftTarget + targetYOffset, { ...tileSpring, delay })).finished,
+                    track(animate(svgScale, toBase ? 1 : scaleTarget, { ...svgSpring, delay })).finished,
+                    track(animate(svgRotate, toBase ? 0 : rotateTarget, { ...svgSpring, delay: delay + 0.04 })).finished,
+                    track(
+                        animate(
+                            svgOpacity,
+                            toBase ? 1 : opacityTarget,
+                            {
+                                ...svgSpring,
+                                stiffness: 540,
+                                delay: delay + 0.02,
+                            }
+                        )
                     ).finished,
                 ]);
 
@@ -470,6 +493,10 @@ function ReactiveTile({
                 delay + 0.02
             );
         }
+
+        return () => {
+            controls.forEach((control) => control.cancel());
+        };
     }, [
         activation.originIndex,
         activation.timestamp,
@@ -695,25 +722,6 @@ function mulberry32(a: number) {
         t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-}
-
-async function continueSpring(
-    value: MotionValue<number>,
-    frames: number[],
-    springConfig: ValueAnimationTransition<number>,
-    delay = 0
-) {
-    for (let i = 0; i < frames.length - 1; i++) {
-        const target = frames[i + 1];
-        const velocity = value.getVelocity();
-
-        await animate(value, target, {
-            ...springConfig,
-            velocity,
-            delay: i === 0 ? delay : 0,
-            restSpeed: 0.003,
-        }).finished;
-    }
 }
 
 function throttledRAF(callback: FrameRequestCallback, fps = 30) {

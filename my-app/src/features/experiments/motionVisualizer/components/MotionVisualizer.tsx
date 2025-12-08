@@ -1,66 +1,59 @@
 "use client";
 
 import {useCallback, useEffect, useRef, useState} from "react";
-import * as motion from "motion/react-client";
-import {AnimatePresence, motion as Motion, useAnimate} from "motion/react";
+import {AnimatePresence, motion, useMotionValue} from "motion/react";
+import type {ValueAnimationTransition} from "motion";
 import MotionChart from "./MotionChart";
 import MotionSlider from "./MotionSlider";
-import {cn} from "@/utils/utils";
+import {cn, continueSpring} from "@/utils/utils";
 import {HiCheck, HiClipboard} from "react-icons/hi";
 
 const DROP_DISTANCE = 480;
+const SLIDE_DISTANCE = 540;
+const INITIAL = {
+    smoothness: 100,
+    snap: 10,
+    weight: 1,
+};
 
 interface MotionVisualizerProps {
     className?: string;
 }
 
 export default function MotionVisualizer({className}: MotionVisualizerProps) {
-    const INITIAL = {
-        smoothness: 100,
-        snap: 10,
-        weight: 1,
-    };
-
-
     const [smoothness, setSmoothness] = useState(100);
     const [snap, setSnap] = useState(10);
     const [weight, setWeight] = useState(1);
     const [isAdjusting, setIsAdjusting] = useState(false);
     const shouldReplayRef = useRef(true);
-    const [scope, animate] = useAnimate();
+    const replayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
 
 
-    const playDrop = useCallback(() => {
-        if (!scope.current) return Promise.resolve();
+    const playDrop = useCallback(async () => {
+        if (typeof window === "undefined") return;
 
         const isMd = window.matchMedia("(min-width: 768px)").matches;
 
-        // MOBILE → vertical drop
+        const springConfig: ValueAnimationTransition<number> = {
+            type: "spring",
+            stiffness: smoothness,
+            damping: snap,
+            mass: weight,
+        };
+
         if (!isMd) {
-            return animate(
-                scope.current,
-                {y: [20, DROP_DISTANCE]},
-                {
-                    type: "spring",
-                    stiffness: smoothness,
-                    damping: snap,
-                    mass: weight,
-                }
-            );
+            x.set(0);
+            y.set(20);
+            await continueSpring(y, [y.get(), DROP_DISTANCE], springConfig);
+            return;
         }
 
-        // DESKTOP (md↑) → horizontal slide
-        return animate(
-            scope.current,
-            {x: [20, 540]},
-            {
-                type: "spring",
-                stiffness: smoothness,
-                damping: snap,
-                mass: weight,
-            }
-        );
-    }, [smoothness, snap, weight]);
+        y.set(0);
+        x.set(20);
+        await continueSpring(x, [x.get(), SLIDE_DISTANCE], springConfig);
+    }, [smoothness, snap, weight, x, y]);
 
     const resetAll = useCallback(() => {
         setSmoothness(INITIAL.smoothness);
@@ -73,26 +66,35 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
     }, [playDrop]);
 
 
+    const clearReplayTimeout = useCallback(() => {
+        if (replayTimeoutRef.current != null) {
+            clearTimeout(replayTimeoutRef.current);
+            replayTimeoutRef.current = null;
+        }
+    }, []);
+
     useEffect(() => {
         if (isAdjusting || !shouldReplayRef.current) {
             return;
         }
         shouldReplayRef.current = false;
-        void playDrop();
-    }, [isAdjusting, playDrop]);
+        clearReplayTimeout();
+        replayTimeoutRef.current = setTimeout(() => {
+            replayTimeoutRef.current = null;
+            void playDrop();
+        }, 160);
+    }, [isAdjusting, playDrop, clearReplayTimeout]);
 
-    const handleSliderStart = useCallback(() => setIsAdjusting(true), []);
+    const handleSliderStart = useCallback(() => {
+        clearReplayTimeout();
+        setIsAdjusting(true);
+    }, [clearReplayTimeout]);
     const handleSliderEnd = useCallback((committed: boolean) => {
         setIsAdjusting(false);
         if (committed) {
             shouldReplayRef.current = true;
         }
     }, []);
-
-    const handleReplay = useCallback(() => {
-        shouldReplayRef.current = false;
-        void playDrop();
-    }, [playDrop]);
 
     const [copied, setCopied] = useState(false);
 
@@ -111,8 +113,10 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
 
 
 
+    useEffect(() => () => clearReplayTimeout(), [clearReplayTimeout]);
+
     return (
-        <Motion.section
+        <motion.section
             className={cn("flex flex-col gap-1 !w-fit place-self-center mx-auto", className)}
             initial={{opacity: 0, scale: 0.95, y: 24}}
             whileInView={{opacity: 1, scale: 1, y: 0}}
@@ -160,8 +164,8 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
 
                     {/* Motion ball */}
                     <motion.div
-                        ref={scope}
                         className="w-5 h-5 md:translate-x-[20px] sm:w-6 sm:h-6 md:w-9 md:h-9 rounded-full bg-cardinal-light z-30"
+                        style={{x, y}}
                         initial={{y: 0, x: 0, opacity: 1}}
                     />
                 </div>
@@ -252,7 +256,7 @@ export default function MotionVisualizer({className}: MotionVisualizerProps) {
                     </div>
                 </div>
             </section>
-        </Motion.section>
+        </motion.section>
     );
 
 }

@@ -34,23 +34,22 @@ export default function MotionSlider({
     const [draft, setDraft] = useState(value);
     const [isDragging, setIsDragging] = useState(false);
     const committedRef = useRef(value);
+    const displayValue = isDragging ? draft : value;
 
     useEffect(() => {
         committedRef.current = value;
-        if (!isDragging) {
-            setDraft(value);
-        }
-    }, [isDragging, value]);
+    }, [value]);
 
-    const formattedValue = useMemo(() => draft.toFixed(step < 1 ? 1 : 0), [draft, step]);
+    const formattedValue = useMemo(() => displayValue.toFixed(step < 1 ? 1 : 0), [displayValue, step]);
 
     const startInteraction = useCallback(() => {
         if (isDragging) {
             return;
         }
+        setDraft(value);
         setIsDragging(true);
         onDragStart?.();
-    }, [isDragging, onDragStart]);
+    }, [isDragging, onDragStart, value]);
 
     const commitValue = useCallback(() => {
         const hasChanged = draft !== committedRef.current;
@@ -106,7 +105,7 @@ export default function MotionSlider({
             <SmoothSlider min={min}
                           max={max}
                           step={step}
-                          value={draft}
+                          value={displayValue}
                           onChange={handleInputChange}
                           onPointerDown={startInteraction}
                           onPointerUp={commitValue}
